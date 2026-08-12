@@ -2730,15 +2730,54 @@ function order_available_customer_action(array $order): ?array
 function order_presenter_data(array $order, array $customer): array
 {
     $orderItems = array_values(array_filter($order['items'] ?? [], 'is_array'));
+    $presentedItems = [];
+    $hasExpressDelivery = false;
+    $deliveryValue = 0.0;
+
+    foreach ($orderItems as $line) {
+        $quantity = max(1, clean_int($line['quantity'] ?? 1, 1, 99));
+        $deliverySurcharge = money_value((string) ($line['delivery_surcharge'] ?? '0'));
+        $lineDeliveryValue = $deliverySurcharge * $quantity;
+        $deliveryValue += $lineDeliveryValue;
+
+        $storedLineTotal = money_value((string) ($line['line_total'] ?? '0'));
+        if ($storedLineTotal <= 0) {
+            $storedLineTotal = money_value((string) ($line['price'] ?? '0')) * $quantity;
+        }
+        $basePrice = money_value((string) ($line['base_price'] ?? '0'));
+        $diamondPrice = money_value((string) ($line['diamond_price'] ?? '0'));
+        $itemLineValue = ($basePrice > 0 || $diamondPrice > 0)
+            ? (($basePrice + $diamondPrice) * $quantity)
+            : max(0.0, $storedLineTotal - $lineDeliveryValue);
+        $line['invoice_unit_price'] = money_format($itemLineValue / $quantity);
+        $line['invoice_line_total'] = money_format($itemLineValue);
+        $presentedItems[] = $line;
+
+        $deliveryText = strtolower(trim(
+            (string) ($line['delivery_option'] ?? '') . ' ' . (string) ($line['delivery_label'] ?? '')
+        ));
+        if ($deliverySurcharge > 0 || str_contains($deliveryText, 'express')) {
+            $hasExpressDelivery = true;
+        }
+    }
+
     $subtotalValue = money_value((string) ($order['subtotal'] ?? ''));
     if ($subtotalValue <= 0 && $orderItems !== []) {
         $subtotalValue = array_reduce($orderItems, static function (float $carry, array $line): float {
-            $lineTotal = money_value((string) ($line['line_total'] ?? ''));
-            if ($lineTotal > 0) {
-                return $carry + $lineTotal;
+            $quantity = max(1, clean_int($line['quantity'] ?? 1, 1, 99));
+            $basePrice = money_value((string) ($line['base_price'] ?? '0'));
+            $diamondPrice = money_value((string) ($line['diamond_price'] ?? '0'));
+            if ($basePrice > 0 || $diamondPrice > 0) {
+                return $carry + (($basePrice + $diamondPrice) * $quantity);
             }
 
-            return $carry + (money_value((string) ($line['price'] ?? '0')) * max(1, clean_int($line['quantity'] ?? 1, 1, 99)));
+            $lineTotal = money_value((string) ($line['line_total'] ?? ''));
+            if ($lineTotal > 0) {
+                $lineDelivery = money_value((string) ($line['delivery_surcharge'] ?? '0')) * $quantity;
+                return $carry + max(0.0, $lineTotal - $lineDelivery);
+            }
+
+            return $carry + (money_value((string) ($line['price'] ?? '0')) * $quantity);
         }, 0.0);
     }
 
@@ -2746,13 +2785,19 @@ function order_presenter_data(array $order, array $customer): array
     $shippingRaw = (string) ($order['shipping_amount'] ?? '');
     $shippingValue = strtolower(trim($shippingRaw)) === 'free' ? 0.0 : money_value($shippingRaw);
     $totalValue = money_value((string) ($order['total'] ?? ''));
+    if ($deliveryValue <= 0 && $hasExpressDelivery && $totalValue > 0) {
+        // Older order rows did not always persist the per-line surcharge. The
+        // paid total still lets us recover it without changing the invoice sum.
+        $deliveryValue = max(0.0, $totalValue - max(0.0, $subtotalValue - $discountValue + $shippingValue));
+    }
     if ($totalValue <= 0) {
-        $totalValue = max(0, $subtotalValue - $discountValue + $shippingValue);
+        $totalValue = max(0, $subtotalValue - $discountValue + $deliveryValue + $shippingValue);
     }
 
     $subtotalLabel = $subtotalValue > 0 ? money_format($subtotalValue) : (string) (($order['subtotal'] ?? '') !== '' ? $order['subtotal'] : money_format($totalValue));
     $discountLabel = $discountValue > 0 ? money_format($discountValue) : money_format(0);
     $shippingLabel = $shippingRaw !== '' ? (strtolower(trim($shippingRaw)) === 'free' ? 'Free' : $shippingRaw) : ($orderItems !== [] ? money_format(0) : 'Included');
+    $deliveryLabel = $deliveryValue > 0 ? money_format($deliveryValue) : 'Free';
     $totalLabel = (string) (($order['total'] ?? '') !== '' ? $order['total'] : money_format($totalValue));
     $itemCount = clean_int($order['item_count'] ?? count($orderItems), 0, 999);
     if ($itemCount === 0 && $orderItems !== []) {
@@ -2778,18 +2823,33 @@ function order_presenter_data(array $order, array $customer): array
         ? date('d M Y, h:i A', strtotime($placedAtRaw))
         : $placedAtRaw;
     $paymentMethodLabel = 'Online Payment';
-    $paymentStatusLabel = ucfirst(strtolower((string) ($order['payment_status'] ?? 'pending')));
+    $paymentStatus = strtolower((string) ($order['payment_status'] ?? 'pending'));
+    $paymentStatusLabel = ucfirst($paymentStatus);
+    $invoiceTotalHeading = match ($paymentStatus) {
+        'paid', 'refund-pending' => 'Amount Paid',
+        'refunded' => 'Original Amount',
+        default => 'Amount Due',
+    };
+    $invoiceTotalCaption = match ($paymentStatus) {
+        'paid', 'refund-pending' => 'Total Paid',
+        'refunded' => 'Original Total',
+        default => 'Total Due',
+    };
     $statusLabel = order_status_label((string) ($order['status'] ?? 'received'));
     $requestSummary = order_customer_request_summary($order);
 
     return [
         'order' => $order,
         'customer' => $customer,
-        'items' => $orderItems,
+        'items' => $presentedItems,
         'subtotal_label' => $subtotalLabel,
         'discount_label' => $discountLabel,
+        'delivery_has_express' => $hasExpressDelivery,
+        'delivery_label' => $deliveryLabel,
         'shipping_label' => $shippingLabel,
         'total_label' => $totalLabel,
+        'invoice_total_heading' => $invoiceTotalHeading,
+        'invoice_total_caption' => $invoiceTotalCaption,
         'item_count' => $itemCount,
         'address_lines' => $addressLines,
         'placed_at_raw' => $placedAtRaw,
@@ -3340,8 +3400,8 @@ function order_build_invoice_pdf(array $presented): string
             }
             $moneyY = $rowTop - max(0, $cnt - 1) * 5.0;
             $put($qtyR, $moneyY, (string) ($row['quantity'] ?? 1), 8.5, false, 'R');
-            $put($unitR, $moneyY, (string) ($row['price'] ?? money_format(0)), 8.5, false, 'R');
-            $put($totalR, $moneyY, (string) ($row['line_total'] ?? money_format(0)), 8.5, true, 'R');
+            $put($unitR, $moneyY, (string) ($row['invoice_unit_price'] ?? $row['price'] ?? money_format(0)), 8.5, false, 'R');
+            $put($totalR, $moneyY, (string) ($row['invoice_line_total'] ?? $row['line_total'] ?? money_format(0)), 8.5, true, 'R');
             $y = $rowTop - $rowH;
             $cur .= sprintf("%.3f %.3f %.3f rg %.2f %.2f %.2f %.2f re f 0 0 0 rg\n", $hair[0], $hair[1], $hair[2], $descX, $y, $right - $descX, 0.5);
             $y -= 4;
@@ -3351,18 +3411,21 @@ function order_build_invoice_pdf(array $presented): string
     $y -= 6;
 
     // Totals block (right aligned under the money columns).
-    $ensure(72.0);
     $tLabel = 430.0;
     $tVal = $right;
     $totRows = [
         ['Items', (string) ($presented['item_count'] ?? 0)],
         ['Subtotal', (string) ($presented['subtotal_label'] ?? money_format(0))],
         ['Discount', '-' . (string) ($presented['discount_label'] ?? money_format(0))],
-        ['Shipping', (string) ($presented['shipping_label'] ?? money_format(0))],
     ];
+    if (!empty($presented['delivery_has_express'])) {
+        $totRows[] = ['Express Delivery', (string) ($presented['delivery_label'] ?? money_format(0))];
+    }
+    $totRows[] = ['Shipping', (string) ($presented['shipping_label'] ?? money_format(0))];
     if ((string) ($order['coupon_code'] ?? '') !== '') {
         $totRows[] = ['Coupon', (string) $order['coupon_code']];
     }
+    $ensure((count($totRows) * 12.0) + 30.0);
     foreach ($totRows as $tr) {
         $put($tLabel, $y, $tr[0], 8.5, false, 'L', $grey);
         $put($tVal, $y, $tr[1], 8.5, false, 'R');
@@ -3370,7 +3433,7 @@ function order_build_invoice_pdf(array $presented): string
     }
     $cur .= sprintf("%.3f %.3f %.3f rg %.2f %.2f %.2f %.2f re f 0 0 0 rg\n", $band[0], $band[1], $band[2], $tLabel - 6.0, $y - 3.0, ($tVal - $tLabel) + 12.0, 0.8);
     $y -= 6;
-    $put($tLabel, $y, 'TOTAL', 10.0, true);
+    $put($tLabel, $y, strtoupper((string) ($presented['invoice_total_caption'] ?? 'Total')), 10.0, true);
     $put($tVal, $y, (string) ($presented['total_label'] ?? money_format(0)), 11.0, true, 'R');
     $y -= 16;
 

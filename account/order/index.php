@@ -105,6 +105,7 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
     background: #fff; border: 1px solid var(--iv-line); border-radius: 4px; box-shadow: none;
     padding: 24px 26px; margin: 0; overflow: visible; height: 100%;
   }
+  .order-detail-page .invoice-lines-panel { height: auto; align-self: start; }
   .order-detail-page .invoice-panel::before, .order-detail-page .invoice-summary-card::before { display: none; }
 
   /* Uniform card heading block */
@@ -338,9 +339,9 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
                   <div class="invoice-line-copy">
                     <strong><?= h((string) ($line['product_name'] ?? 'Item')) ?></strong>
                     <span><?= h(line_variant_summary($line)) ?></span>
-                    <small>Unit <?= h((string) ($line['price'] ?? money_format(0))) ?> · Qty <?= h((string) ($line['quantity'] ?? 1)) ?></small>
+                    <small>Unit <?= h((string) ($line['invoice_unit_price'] ?? $line['price'] ?? money_format(0))) ?> · Qty <?= h((string) ($line['quantity'] ?? 1)) ?></small>
                   </div>
-                  <strong class="invoice-line-total"><?= h((string) ($line['line_total'] ?? money_format(0))) ?></strong>
+                  <strong class="invoice-line-total"><?= h((string) ($line['invoice_line_total'] ?? $line['line_total'] ?? money_format(0))) ?></strong>
                 </article>
               <?php endforeach; ?>
             </div>
@@ -350,15 +351,18 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
         <aside class="order-side-stack">
           <div class="account-panel invoice-summary-card">
             <span class="auth-kicker">Invoice Totals</span>
-            <h2>Amount Payable</h2>
+            <h2><?= h((string) ($presented['invoice_total_heading'] ?? 'Invoice Total')) ?></h2>
             <div class="summary-row"><span>Items</span><strong><?= h((string) ($presented['item_count'] ?? 0)) ?></strong></div>
             <div class="summary-row"><span>Subtotal</span><strong><?= h((string) ($presented['subtotal_label'] ?? '')) ?></strong></div>
             <div class="summary-row"><span>Discount</span><strong>-<?= h((string) ($presented['discount_label'] ?? '')) ?></strong></div>
+            <?php if (!empty($presented['delivery_has_express'])): ?>
+              <div class="summary-row"><span>Express Delivery</span><strong><?= h((string) ($presented['delivery_label'] ?? '')) ?></strong></div>
+            <?php endif; ?>
             <div class="summary-row"><span>Shipping</span><strong><?= h((string) ($presented['shipping_label'] ?? '')) ?></strong></div>
             <?php if (($order['coupon_code'] ?? '') !== ''): ?>
               <div class="summary-row"><span>Coupon</span><strong><?= h((string) $order['coupon_code']) ?></strong></div>
             <?php endif; ?>
-            <div class="summary-row summary-row-total"><span>Total</span><strong><?= h((string) ($presented['total_label'] ?? '')) ?></strong></div>
+            <div class="summary-row summary-row-total"><span><?= h((string) ($presented['invoice_total_caption'] ?? 'Total')) ?></span><strong><?= h((string) ($presented['total_label'] ?? '')) ?></strong></div>
           </div>
 
           <?php if (is_array($presented['request_summary'] ?? null)): ?>
@@ -502,8 +506,8 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
           <tr>
             <td class="prod"><?= h((string) ($ivLine['product_name'] ?? 'Item')) ?><?php if ($ivVariant !== ''): ?><div class="var">Variant: <?= h($ivVariant) ?></div><?php endif; ?></td>
             <td class="r"><?= h((string) ($ivLine['quantity'] ?? 1)) ?></td>
-            <td class="r"><?= h((string) ($ivLine['price'] ?? money_format(0))) ?></td>
-            <td class="r"><?= h((string) ($ivLine['line_total'] ?? money_format(0))) ?></td>
+            <td class="r"><?= h((string) ($ivLine['invoice_unit_price'] ?? $ivLine['price'] ?? money_format(0))) ?></td>
+            <td class="r"><?= h((string) ($ivLine['invoice_line_total'] ?? $ivLine['line_total'] ?? money_format(0))) ?></td>
           </tr>
         <?php endforeach; ?>
       <?php endif; ?>
@@ -514,9 +518,10 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
     <tr><td class="l">Items</td><td class="v"><?= h((string) ($presented['item_count'] ?? 0)) ?></td></tr>
     <tr><td class="l">Subtotal</td><td class="v"><?= h((string) ($presented['subtotal_label'] ?? '')) ?></td></tr>
     <tr><td class="l">Discount</td><td class="v">-<?= h((string) ($presented['discount_label'] ?? '')) ?></td></tr>
+    <?php if (!empty($presented['delivery_has_express'])): ?><tr><td class="l">Express Delivery</td><td class="v"><?= h((string) ($presented['delivery_label'] ?? '')) ?></td></tr><?php endif; ?>
     <tr><td class="l">Shipping</td><td class="v"><?= h((string) ($presented['shipping_label'] ?? '')) ?></td></tr>
     <?php if (($order['coupon_code'] ?? '') !== ''): ?><tr><td class="l">Coupon</td><td class="v"><?= h((string) $order['coupon_code']) ?></td></tr><?php endif; ?>
-    <tr class="pi-grand"><td class="l">TOTAL</td><td class="v"><?= h((string) ($presented['total_label'] ?? '')) ?></td></tr>
+    <tr class="pi-grand"><td class="l"><?= h(strtoupper((string) ($presented['invoice_total_caption'] ?? 'Total'))) ?></td><td class="v"><?= h((string) ($presented['total_label'] ?? '')) ?></td></tr>
   </table>
 
   <?php if ((string) ($order['notes'] ?? '') !== ''): ?>
