@@ -1,0 +1,114 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [ 5 0 R ] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Title (Azuronn Invoice ord-24006) >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 1440 >>
+stream
+BT
+/F1 11 Tf
+50 790 Td
+14 TL
+(AZURONN ORDER INVOICE) Tj
+T*
+(====================================================================================) Tj
+T*
+(Invoice Number: ord-24006) Tj
+T*
+(Placed At: 02 Aug 2026, 09:44 AM) Tj
+T*
+(Order Status: Pending) Tj
+T*
+(Payment Status: Awaiting) Tj
+T*
+(Payment Method: Cash on Delivery) Tj
+T*
+() Tj
+T*
+(Customer) Tj
+T*
+(------------------------------------------------------------------------------------) Tj
+T*
+(Name: test) Tj
+T*
+(Email: test1234@gmail.com) Tj
+T*
+(Phone: 1234567890) Tj
+T*
+() Tj
+T*
+(Shipping Address) Tj
+T*
+(------------------------------------------------------------------------------------) Tj
+T*
+(sadasda) Tj
+T*
+(surat, dsdcs) Tj
+T*
+(scfsdf India) Tj
+T*
+() Tj
+T*
+(Items) Tj
+T*
+(------------------------------------------------------------------------------------) Tj
+T*
+(1. 2mm Ring) Tj
+T*
+(   Variant: Yellow Gold / Size 4 / Princess Diamond / Gold / Band/Claw White / White Gold / 4-5 Weeks Delivery) Tj
+T*
+(   Unit Price: GBP 550.00   Qty: 1   Line Total: GBP 550.00) Tj
+T*
+() Tj
+T*
+(Totals) Tj
+T*
+(------------------------------------------------------------------------------------) Tj
+T*
+(Items: 1) Tj
+T*
+(Subtotal: GBP 550.00) Tj
+T*
+(Discount: -GBP 0.00) Tj
+T*
+(Shipping: Free) Tj
+T*
+(Grand Total: GBP 550.00) Tj
+T*
+() Tj
+T*
+(Notes) Tj
+T*
+(------------------------------------------------------------------------------------) Tj
+T*
+(Cash on delivery order placed.) Tj
+T*
+ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000117 00000 n 
+0000000187 00000 n 
+0000000243 00000 n 
+0000000369 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R /Info 4 0 R >>
+startxref
+1861
+%%EOF

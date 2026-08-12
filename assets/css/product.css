@@ -1,0 +1,1022 @@
+/* ═══════════════════════════════════════════════════════════════
+   AZURONN — PRODUCT / PURCHASE PAGE
+   Clean white, editorial, premium. Scoped to body.product-page
+   so the rest of the storefront is untouched. Functional hooks
+   (.option-card, .is-selected, data-*, gallery/qty/wishlist)
+   are preserved verbatim; only the visual layer is new.
+   ═══════════════════════════════════════════════════════════════ */
+
+body.product-page {
+  background: #ffffff;
+  color: #1a1a1a;
+  --pp-ink: #1a1d1c;
+  --pp-ink-soft: #5c6360;
+  --pp-faint: #9aa09d;
+  --pp-line: #e7e8e6;
+  --pp-line-soft: #f0f1ef;
+  --pp-panel: #f6f6f4;
+  --pp-panel-2: #fafaf9;
+  --pp-accent: #2b3a36;        /* deep evergreen-ink for primary CTA */
+  --pp-accent-hover: #1d2825;
+  --pp-gold: #b08a4f;
+  --pp-gold-soft: #c9a96e;
+  --pp-radius: 4px;
+  --pp-radius-lg: 10px;
+  --pp-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --pp-sans: 'Outfit', 'Jost', 'Montserrat', system-ui, sans-serif;
+  --pp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body.product-page * { box-sizing: border-box; }
+
+body.product-page .pp-page { padding: 0 0 90px; }
+
+body.product-page .pp-container { max-width: 1320px; margin: 0 auto; padding: 0 28px; }
+
+/* ── Breadcrumb ─────────────────────────────────────────────── */
+body.product-page .pp-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  padding: 26px 0 30px;
+  font-family: var(--pp-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pp-faint);
+}
+
+body.product-page .pp-breadcrumb a {
+  color: var(--pp-ink-soft);
+  text-decoration: none;
+  transition: color 0.2s var(--pp-ease);
+}
+
+body.product-page .pp-breadcrumb a:hover { color: var(--pp-gold); }
+
+body.product-page .pp-crumb-sep { color: var(--pp-line); font-size: 0.7rem; }
+
+body.product-page .pp-crumb-current { color: var(--pp-ink); }
+
+/* ── Engagement step bar ────────────────────────────────────── */
+body.product-page .pp-steps {
+  border-bottom: 1px solid var(--pp-line);
+  background: var(--pp-panel-2);
+  margin-bottom: 8px;
+}
+
+body.product-page .pp-steps-list {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 0;
+  padding: 16px 0;
+  flex-wrap: wrap;
+}
+
+body.product-page .pp-steps-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--pp-sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pp-faint);
+}
+
+body.product-page .pp-steps-list li span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--pp-line);
+  font-size: 0.72rem;
+  color: var(--pp-faint);
+}
+
+body.product-page .pp-steps-list li.is-active { color: var(--pp-ink); }
+body.product-page .pp-steps-list li.is-active span {
+  background: var(--pp-accent);
+  border-color: var(--pp-accent);
+  color: #fff;
+}
+
+/* ── Two-column grid ────────────────────────────────────────── */
+body.product-page .pp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
+  gap: 64px;
+  align-items: start;
+}
+
+/* ── Gallery ────────────────────────────────────────────────── */
+body.product-page .pp-gallery {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 14px;
+}
+
+body.product-page .pp-stage {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--pp-panel);
+  border-radius: var(--pp-radius-lg);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+body.product-page .pp-stage img,
+body.product-page .pp-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.18s var(--pp-ease);
+}
+
+body.product-page .pp-stage img.is-swapping,
+body.product-page .pp-stage video.is-swapping { opacity: 0; }
+
+body.product-page .pp-stage-rotate {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  color: var(--pp-faint);
+  font-size: 1.1rem;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+body.product-page .pp-thumbs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+body.product-page .pp-thumbs [data-product-thumb] {
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 1px solid var(--pp-line);
+  border-radius: var(--pp-radius-lg);
+  background: var(--pp-panel-2);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s var(--pp-ease), box-shadow 0.2s var(--pp-ease);
+}
+
+body.product-page .pp-thumbs [data-product-thumb] img,
+body.product-page .pp-thumbs [data-product-thumb] video { width: 100%; height: 100%; object-fit: cover; }
+
+body.product-page .pp-thumbs [data-product-thumb]:hover { border-color: var(--pp-gold-soft); }
+
+body.product-page .pp-thumbs [data-product-thumb].is-active {
+  border-color: var(--pp-ink);
+  box-shadow: 0 0 0 1px var(--pp-ink);
+}
+
+/* ── Configurator column ────────────────────────────────────── */
+body.product-page .pp-config { min-width: 0; }
+
+body.product-page .pp-eyebrow {
+  display: block;
+  font-family: var(--pp-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--pp-gold);
+  margin-bottom: 14px;
+}
+
+body.product-page .pp-title {
+  font-family: var(--pp-serif);
+  font-weight: 600;
+  font-size: clamp(2rem, 3.4vw, 2.9rem);
+  line-height: 1.12;
+  color: var(--pp-ink);
+  margin: 0 0 20px;
+  letter-spacing: 0.005em;
+}
+
+body.product-page .pp-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--pp-line-soft);
+}
+
+body.product-page .pp-price-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+
+body.product-page .pp-price-base {
+  font-family: var(--pp-sans);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--pp-ink);
+}
+
+body.product-page .pp-price-old {
+  font-family: var(--pp-sans);
+  font-size: 1rem;
+  color: var(--pp-faint);
+  text-decoration: line-through;
+}
+
+body.product-page .pp-price-note {
+  font-family: var(--pp-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pp-faint);
+}
+
+/* Wishlist toggle */
+body.product-page .pp-wish,
+body.product-page .wishlist-toggle-inline.pp-wish {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border: 1px solid var(--pp-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--pp-ink-soft);
+  font-family: var(--pp-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s var(--pp-ease);
+}
+
+body.product-page .pp-wish:hover { border-color: var(--pp-ink); color: var(--pp-ink); }
+
+body.product-page .pp-wish.is-active { color: #b23a48; border-color: rgba(178, 58, 72, 0.4); }
+body.product-page .pp-wish.is-active i { color: #b23a48; }
+
+body.product-page .pp-desc {
+  font-family: var(--pp-sans);
+  font-size: 0.96rem;
+  line-height: 1.7;
+  color: var(--pp-ink-soft);
+  margin: 0 0 26px;
+}
+
+body.product-page .pp-flash { margin: 0 0 18px; border-radius: var(--pp-radius); }
+
+/* ── Option blocks ──────────────────────────────────────────── */
+body.product-page .pp-form .pp-opt {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--pp-line-soft);
+}
+
+body.product-page .pp-form .pp-opt:first-of-type { padding-top: 4px; }
+
+body.product-page .pp-opt-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  /* Wrap rather than clip: a long selection like '18" Chain +£100' drops to its
+     own line instead of being squeezed out of the row. */
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+body.product-page .pp-opt-label {
+  font-family: var(--pp-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pp-ink);
+  flex: 0 0 auto;
+}
+
+body.product-page .pp-opt-value {
+  font-family: var(--pp-sans);
+  font-size: 0.86rem;
+  color: var(--pp-ink-soft);
+  font-weight: 400;
+  /* min-width:0 lets the value shrink inside the flex row instead of
+     overflowing; it stays fully readable because the row can wrap. */
+  min-width: 0;
+}
+
+body.product-page .pp-opt-info {
+  margin-left: auto;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid var(--pp-line);
+  color: var(--pp-faint);
+  font-size: 0.62rem;
+  display: inline-grid;
+  place-items: center;
+  font-style: normal;
+}
+
+body.product-page .pp-form .pp-grid-opt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Neutralise the global .option-card look inside our form, then restyle */
+body.product-page .pp-form .option-card {
+  position: relative;
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+body.product-page .pp-form .option-card > input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Metal swatches (round orbs) */
+body.product-page .pp-form .pp-metal {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 64px;
+}
+
+body.product-page .pp-metal-orb {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--pp-line);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s var(--pp-ease), box-shadow 0.2s var(--pp-ease);
+}
+
+body.product-page .pp-metal.is-selected .pp-metal-orb,
+body.product-page .pp-form .pp-metal input:checked ~ .pp-metal-orb {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--pp-ink);
+  transform: scale(1.04);
+}
+
+body.product-page .pp-metal-name {
+  font-family: var(--pp-sans);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--pp-ink-soft);
+  text-align: center;
+  line-height: 1.2;
+}
+
+body.product-page .pp-metal.is-selected .pp-metal-name { color: var(--pp-ink); font-weight: 600; }
+
+body.product-page .pp-metal.tone-yellow .pp-metal-orb { background: radial-gradient(circle at 35% 30%, #f6e3a8, #d8b25a 70%); }
+body.product-page .pp-metal.tone-rose .pp-metal-orb { background: radial-gradient(circle at 35% 30%, #f3d3c4, #d99c84 70%); }
+body.product-page .pp-metal.tone-white .pp-metal-orb { background: radial-gradient(circle at 35% 30%, #ffffff, #d7dadb 70%); }
+body.product-page .pp-metal.tone-platinum .pp-metal-orb { background: radial-gradient(circle at 35% 30%, #f0f1f2, #b9bfc2 70%); }
+body.product-page .pp-metal.tone-forest .pp-metal-orb { background: radial-gradient(circle at 35% 30%, #e9ece8, #b7c2b8 70%); }
+
+/* Cart metal color dot */
+.cart-metal-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  vertical-align: middle;
+  margin-right: 5px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+  flex-shrink: 0;
+}
+
+/* Diamond shape chips (line-icon) */
+body.product-page .pp-form .pp-shape {
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 60px;
+  padding: 8px 4px;
+  border-radius: var(--pp-radius);
+  border: 1px solid transparent;
+  transition: border-color 0.2s var(--pp-ease);
+}
+
+body.product-page .pp-shape-ic {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+}
+
+body.product-page .pp-shape-ic img { width: 100%; height: 100%; object-fit: contain; opacity: 0.7; transition: opacity 0.2s var(--pp-ease); }
+
+body.product-page .pp-shape-name {
+  font-family: var(--pp-sans);
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  color: var(--pp-faint);
+  text-align: center;
+}
+
+body.product-page .pp-shape.is-selected,
+body.product-page .pp-form .pp-shape input:checked ~ * { }
+body.product-page .pp-shape.is-selected { border-color: var(--pp-ink); }
+body.product-page .pp-shape.is-selected .pp-shape-ic img { opacity: 1; }
+body.product-page .pp-shape.is-selected .pp-shape-name { color: var(--pp-ink); font-weight: 600; }
+body.product-page .pp-shape:hover { border-color: var(--pp-line); }
+
+/* Size pills */
+body.product-page .pp-form .pp-size {
+  min-width: 52px;
+  justify-content: center;
+  padding: 11px 16px;
+  border: 1px solid var(--pp-line);
+  border-radius: var(--pp-radius);
+  background: #fff;
+  font-family: var(--pp-sans);
+  font-size: 0.86rem;
+  color: var(--pp-ink);
+  transition: all 0.18s var(--pp-ease);
+}
+
+body.product-page .pp-size:hover { border-color: var(--pp-ink-soft); }
+
+body.product-page .pp-size.is-selected,
+body.product-page .pp-form .pp-size input:checked ~ .pp-size-copy {
+  background: var(--pp-ink);
+  border-color: var(--pp-ink);
+  color: #fff;
+}
+
+body.product-page .pp-size.is-selected { background: var(--pp-ink); border-color: var(--pp-ink); }
+body.product-page .pp-size.is-selected .pp-size-copy strong { color: #fff; }
+body.product-page .pp-size-copy strong { font-weight: 600; }
+
+/* Stone-weight / jewellery-metal compact cards */
+body.product-page .pp-form .pp-jewel,
+body.product-page .pp-form .pp-stone {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 84px;
+  padding: 14px 12px;
+  border: 1px solid var(--pp-line);
+  border-radius: var(--pp-radius-lg);
+  background: #fff;
+  transition: all 0.18s var(--pp-ease);
+}
+
+body.product-page .pp-jewel:hover,
+body.product-page .pp-stone:hover { border-color: var(--pp-ink-soft); }
+
+body.product-page .pp-jewel.is-selected,
+body.product-page .pp-stone.is-selected { border-color: var(--pp-ink); box-shadow: 0 0 0 1px var(--pp-ink); }
+
+body.product-page .pp-jewel-orb {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--pp-sans);
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: #5a5a5a;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+body.product-page .pp-jewel-orb em { font-style: normal; }
+
+body.product-page .pp-jewel.tone-white .pp-jewel-orb { background: radial-gradient(circle at 35% 30%, #fff, #d7dadb); }
+body.product-page .pp-jewel.tone-yellow .pp-jewel-orb { background: radial-gradient(circle at 35% 30%, #f6e3a8, #d8b25a); }
+body.product-page .pp-jewel.tone-rose .pp-jewel-orb { background: radial-gradient(circle at 35% 30%, #f3d3c4, #d99c84); }
+
+body.product-page .pp-jewel-meta,
+body.product-page .pp-stone-meta {
+  font-family: var(--pp-sans);
+  font-size: 0.74rem;
+  color: var(--pp-ink-soft);
+  text-align: center;
+  line-height: 1.3;
+}
+
+body.product-page .pp-stone-meta strong { display: block; font-weight: 600; color: var(--pp-ink); }
+body.product-page .pp-stone-meta small { color: var(--pp-faint); font-size: 0.66rem; }
+body.product-page .pp-stone-orb { display: none; }
+
+/* Band / claw + delivery cards (server-rendered AND js-rendered share these) */
+body.product-page .pp-form .option-card-band,
+body.product-page .pp-form .option-card-delivery {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  flex: 1 1 200px;
+  max-width: 260px;
+  padding: 15px;
+  border: 1px solid var(--pp-line);
+  border-radius: var(--pp-radius-lg);
+  background: #fff;
+  transition: all 0.18s var(--pp-ease);
+}
+
+body.product-page .option-card-band:hover,
+body.product-page .option-card-delivery:hover { border-color: var(--pp-ink-soft); }
+
+body.product-page .option-card-band.is-selected,
+body.product-page .option-card-delivery.is-selected {
+  border-color: var(--pp-ink);
+  box-shadow: 0 0 0 1px var(--pp-ink);
+}
+
+body.product-page .option-card-band-thumb {
+  width: 100%;
+  /* Square slot: a ring photo (usually square/portrait) fills it large, and any
+     leftover letterbox is white-on-white so it never shows as an empty "cut"
+     box the way the old wide 16:9 grey tile did. */
+  aspect-ratio: 1 / 1;
+  border-radius: var(--pp-radius);
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid var(--pp-line);
+  padding: 10px;
+  display: grid;
+  place-items: center;
+}
+
+body.product-page .option-card-band-thumb img,
+body.product-page .option-card-band-image {
+  width: 100%;
+  height: 100%;
+  /* contain = the WHOLE uploaded image is always shown, never cropped. The
+     padding lives on the thumb (above) so the image can't overflow/clip. */
+  object-fit: contain;
+}
+
+body.product-page .option-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--pp-sans);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--pp-ink);
+}
+
+body.product-page .option-card-badge {
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--pp-gold);
+}
+
+body.product-page .option-card-band small,
+body.product-page .option-card-delivery small {
+  font-family: var(--pp-sans);
+  font-size: 0.74rem;
+  color: var(--pp-ink-soft);
+  line-height: 1.45;
+}
+
+body.product-page .option-card-delivery-mark { display: none; }
+
+body.product-page .option-card-price {
+  font-family: var(--pp-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--pp-ink);
+}
+
+/* ── Add-on option cards (Total Carat Weight, Chain Length, …) ──────────────
+   These also exist in style.css, but the `.pp-form .option-card` neutraliser
+   above out-specifies them (0,3,1 vs 0,2,0), which stripped the card padding
+   and border and left the options as loose unaligned text. Restating them
+   here — at the same specificity as the sibling .pp-size / .option-card-band
+   rules — puts every product option style in one file and wins by load order. */
+body.product-page .pp-form .pp-addon-grid {
+  display: grid;
+  /* Fixed tracks (not flex-wrap) so every card shares one baseline and a long
+     surcharge like "+£149.48" can't shunt its neighbour out of alignment. */
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+}
+
+body.product-page .pp-form .option-card-addon {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--pp-line);
+  border-radius: var(--pp-radius-lg);
+  background: #fff;
+  text-align: center;
+  transition: all 0.18s var(--pp-ease);
+}
+
+body.product-page .option-card-addon:hover { border-color: var(--pp-ink-soft); }
+
+body.product-page .option-card-addon-name {
+  font-family: var(--pp-sans);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--pp-ink);
+  line-height: 1.3;
+}
+
+body.product-page .option-card-addon-badge {
+  font-family: var(--pp-sans);
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--pp-gold);
+}
+
+body.product-page .pp-form .option-card-addon.is-selected {
+  background: var(--pp-ink);
+  border-color: var(--pp-ink);
+  box-shadow: 0 0 0 1px var(--pp-ink);
+}
+
+body.product-page .option-card-addon.is-selected .option-card-addon-name { color: #fff; }
+body.product-page .option-card-addon.is-selected .option-card-addon-badge { color: #d9c9a6; }
+
+/* Wide variant keeps its roomier 2-up presentation. */
+body.product-page .pp-form .pp-addon-grid--wide {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+body.product-page .pp-form .pp-addon-grid--wide .option-card-addon { padding: 16px 14px; }
+
+/* Compact color chips (non-matrix) */
+body.product-page .pp-form .pp-color-compact {
+  padding: 10px 16px;
+  border: 1px solid var(--pp-line);
+  border-radius: var(--pp-radius);
+  background: #fff;
+  font-family: var(--pp-sans);
+  font-size: 0.82rem;
+  color: var(--pp-ink);
+  transition: all 0.18s var(--pp-ease);
+}
+
+body.product-page .pp-color-compact:hover { border-color: var(--pp-ink-soft); }
+body.product-page .pp-color-compact.is-selected { background: var(--pp-ink); border-color: var(--pp-ink); color: #fff; }
+
+/* ── Highlights ─────────────────────────────────────────────── */
+body.product-page .pp-form .product-highlights.pp-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 22px 0;
+}
+
+body.product-page .pp-highlights .product-highlight-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--pp-sans);
+  font-size: 0.82rem;
+  color: var(--pp-ink-soft);
+}
+
+body.product-page .pp-highlights .product-highlight-chip i { color: var(--pp-gold); font-size: 0.72rem; }
+
+/* ── Purchase summary card ─────────────────────────────────────
+   Now scrolls in NORMAL flow (position: static) so the tall card
+   never pins over the metal / size / band selectors. A separate
+   slim buy-bar (below) provides the persistent pinned CTA. */
+body.product-page .pp-summary {
+  position: static;
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid var(--pp-line);
+  border-radius: var(--pp-radius-lg);
+  background: #fbfbfa;
+  box-shadow: 0 18px 44px rgba(20, 24, 22, 0.07);
+}
+
+body.product-page .pp-summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  font-family: var(--pp-sans);
+}
+
+body.product-page .pp-summary-row > span {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pp-ink-soft);
+}
+
+body.product-page .pp-summary-row > strong {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--pp-ink);
+}
+
+body.product-page .pp-summary-sub {
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--pp-line-soft);
+}
+
+body.product-page .pp-summary-sub > span { text-transform: none; letter-spacing: 0; }
+body.product-page .pp-summary-sub > strong { font-size: 0.86rem; font-weight: 500; color: var(--pp-ink-soft); }
+
+body.product-page .pp-cta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+body.product-page .pp-qty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border: 1px solid var(--pp-line);
+  border-radius: var(--pp-radius);
+  background: #fff;
+  width: fit-content;
+  justify-self: start;
+}
+
+body.product-page .pp-qty button {
+  width: 40px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--pp-ink);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: color 0.18s var(--pp-ease);
+}
+
+body.product-page .pp-qty button:hover { color: var(--pp-gold); }
+
+body.product-page .pp-qty input {
+  width: 46px;
+  height: 44px;
+  border: none;
+  border-left: 1px solid var(--pp-line);
+  border-right: 1px solid var(--pp-line);
+  text-align: center;
+  font-family: var(--pp-sans);
+  font-size: 0.92rem;
+  color: var(--pp-ink);
+  -moz-appearance: textfield;
+}
+
+body.product-page .pp-qty input::-webkit-outer-spin-button,
+body.product-page .pp-qty input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+body.product-page .pp-btn-primary {
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  border-radius: var(--pp-radius);
+  background: var(--pp-accent);
+  color: #fff;
+  font-family: var(--pp-sans);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s var(--pp-ease), transform 0.2s var(--pp-ease);
+}
+
+body.product-page .pp-btn-primary:hover { background: var(--pp-accent-hover); transform: translateY(-1px); }
+body.product-page .pp-btn-primary:disabled { background: #c4c8c6; cursor: not-allowed; transform: none; }
+
+body.product-page .pp-btn-ghost {
+  width: 100%;
+  padding: 14px 24px;
+  border: 1px solid var(--pp-ink);
+  border-radius: var(--pp-radius);
+  background: #fff;
+  color: var(--pp-ink);
+  font-family: var(--pp-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s var(--pp-ease);
+}
+
+body.product-page .pp-btn-ghost:hover { background: var(--pp-ink); color: #fff; }
+
+body.product-page .pp-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--pp-line-soft);
+}
+
+body.product-page .pp-trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--pp-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  color: var(--pp-ink-soft);
+}
+
+body.product-page .pp-trust i { color: var(--pp-gold); font-size: 0.78rem; }
+
+body.product-page .pp-appointment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-family: var(--pp-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--pp-ink-soft);
+  text-decoration: none;
+  border-bottom: 1px solid var(--pp-line);
+  padding-bottom: 2px;
+  transition: color 0.2s var(--pp-ease), border-color 0.2s var(--pp-ease);
+}
+
+body.product-page .pp-appointment:hover { color: var(--pp-gold); border-color: var(--pp-gold); }
+
+/* ── Meta strip ─────────────────────────────────────────────── */
+body.product-page .pp-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 24px;
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--pp-line-soft);
+}
+
+body.product-page .pp-meta > div { display: grid; gap: 3px; }
+
+body.product-page .pp-meta span {
+  font-family: var(--pp-sans);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pp-faint);
+}
+
+body.product-page .pp-meta strong {
+  font-family: var(--pp-sans);
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--pp-ink-soft);
+}
+
+/* ── Related products ───────────────────────────────────────── */
+body.product-page .pp-related {
+  margin-top: 84px;
+  padding-top: 56px;
+  border-top: 1px solid var(--pp-line-soft);
+}
+
+body.product-page .pp-related .sec-hdr-premium { margin-bottom: 34px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 980px) {
+  body.product-page .pp-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  body.product-page .pp-gallery { position: static; }
+
+  body.product-page .pp-summary { position: static; box-shadow: none; }
+
+  body.product-page .pp-thumbs { grid-template-columns: repeat(5, 1fr); }
+}
+
+@media (max-width: 560px) {
+  body.product-page .pp-container { padding: 0 18px; }
+
+  body.product-page .pp-breadcrumb { padding: 18px 0 22px; gap: 7px; font-size: 0.66rem; }
+
+  body.product-page .pp-thumbs { grid-template-columns: repeat(4, 1fr); }
+
+  body.product-page .pp-head-row { flex-direction: row; align-items: center; }
+
+  body.product-page .pp-form .pp-metal { width: 56px; }
+  body.product-page .pp-metal-orb { width: 36px; height: 36px; }
+
+  body.product-page .pp-summary { padding: 18px; }
+}
+
+/* ── Slim pinned buy-bar ───────────────────────────────────────
+   The full summary card above now scrolls in normal flow, so it no
+   longer pins over the metal / size / band selectors. This thin bar
+   is the persistent CTA: it slides up only while the card's own
+   button is scrolled out of view, and slides away again at the
+   footer. Its button just re-submits the real .pp-form, so the order
+   flow is unchanged. Hidden by default (the [hidden] attr) for
+   no-JS clients, who still reach the in-flow card by scrolling. */
+body.product-page .pp-sticky-buybar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  background: #fff;
+  border-top: 1px solid var(--pp-line);
+  box-shadow: 0 -8px 24px rgba(20, 24, 22, 0.08);
+  transform: translateY(110%);
+  transition: transform 0.3s var(--pp-ease);
+}
+body.product-page .pp-sticky-buybar.is-visible { transform: translateY(0); }
+body.product-page .pp-sticky-buybar[hidden] { display: none; }
+
+body.product-page .pp-sticky-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 12px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+body.product-page .pp-sticky-info {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-width: 0;
+}
+body.product-page .pp-sticky-name {
+  font-family: var(--pp-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--pp-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 52vw;
+}
+body.product-page .pp-sticky-total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+body.product-page .pp-sticky-total-label {
+  font-family: var(--pp-sans);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pp-ink-soft);
+  font-weight: 600;
+}
+body.product-page .pp-sticky-total strong {
+  font-family: var(--pp-sans);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--pp-ink);
+}
+/* The shared .pp-btn-primary is width:100%; scope it back to auto here. */
+body.product-page .pp-sticky-btn {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 13px 28px;
+  white-space: nowrap;
+}
+
+/* When the bar is showing, lift the bottom-corner widgets above it so the
+   cookie pill (left) and scroll-to-top (right) never sit hidden behind it. */
+body.product-page .cookie-settings-launcher,
+body.product-page .scroll-top { transition: bottom 0.25s var(--pp-ease); }
+body.product-page.pp-bar-active .cookie-settings-launcher { bottom: 80px; }
+body.product-page.pp-bar-active .scroll-top { bottom: 90px; }
+
+@media (max-width: 560px) {
+  body.product-page .pp-sticky-inner { padding: 10px 16px; gap: 12px; }
+  body.product-page .pp-sticky-name { max-width: 40vw; font-size: 0.95rem; }
+  body.product-page .pp-sticky-btn { padding: 12px 18px; }
+}

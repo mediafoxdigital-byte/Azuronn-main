@@ -1,0 +1,1646 @@
+/* ============================================================================
+   responsive.css — phone + tablet layout corrections.
+
+   Loaded LAST so it wins over style.css and the inline header block without
+   needing !important everywhere.
+
+   Hard rule for this file: every rule lives inside a `max-width` media query
+   at or below 1024px. Nothing here may apply at >=1025px, so the laptop /
+   desktop rendering is untouched.
+
+   Breakpoints used:
+     <= 1024px  tablet + phone   (iPad portrait 820, iPad Air 834, iPad Pro 1024)
+     <=  767px  phone
+     <=  480px  small phone
+   ========================================================================== */
+
+
+/* ==========================================================================
+   0. DESKTOP GUARD
+
+   The drawer chrome added to nav.php (burger, scrim, drawer head/search/foot)
+   must be completely absent from the laptop/desktop header. style.css already
+   sets `.mnav-toggle, .mnav-item-toggle { display: none }` unconditionally,
+   but the elements introduced here need their own rule.
+   ========================================================================== */
+.mnav-scrim,
+.mnav-drawer-head,
+.mnav-drawer-search,
+.mnav-drawer-foot {
+  display: none;
+}
+
+
+/* ==========================================================================
+   1. TABLET + PHONE  (<= 1024px)
+   ========================================================================== */
+@media (max-width: 1024px) {
+
+  /* --- Page-level overflow guard -----------------------------------------
+     style.css only applied this below 860px, which left iPad portrait (820 is
+     covered, but 834/1024 were not) able to scroll sideways. */
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Nothing may force a viewport-wider box. */
+  img,
+  video,
+  iframe,
+  table {
+    max-width: 100%;
+  }
+
+  /* ------------------------------------------------------------------
+     HEADER
+
+     The desktop header is a 3-column grid with a full-width nav row
+     underneath. That needs ~900px of runway. Below 1025px we collapse it
+     to a single compact row:  [burger] [logo] [search wishlist account bag]
+     and move the nav into an off-canvas drawer.
+     ------------------------------------------------------------------ */
+
+  .header-flex-grid {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    grid-template-areas: "nav center right";
+    align-items: center;
+    column-gap: 10px;
+    width: 100%;
+  }
+
+  /* "Request an appointment" is the least critical header element and the
+     widest; it moves into the drawer instead of squeezing the row. */
+  .header-grid-left {
+    display: none;
+  }
+
+  .header-grid-nav {
+    grid-area: nav;
+    justify-self: start;
+    align-self: center;
+    width: auto;
+    border-top: 0;
+    padding: 0;
+    display: block;
+  }
+
+  .header-grid-center {
+    grid-area: center;
+    justify-self: center;
+    padding: 12px 0;
+  }
+
+  .header-grid-right {
+    grid-area: right;
+    justify-self: end;
+    padding: 12px 0;
+  }
+
+  /* The logo file is 1878x207 (~9.07:1). Two things were crushing it on
+     handhelds: `.luxury-logo-box img { height: 60px }` in style.css outranks a
+     single-class selector, and `object-fit: contain` is declared only inside
+     header.php's `@media (min-width: 1025px)` block, so below that the UA
+     default `fill` applies. The image was being stretched into a 118x60 box —
+     an aspect ratio of ~1.97:1 — which is the reported blur/distortion.
+     Because the mark is so wide, width is the binding dimension: drive it off
+     the viewport and let height follow, rather than fixing a height that
+     `contain` then has to letterbox inside. */
+  .luxury-logo-box img.main-header-logo-img {
+    width: min(210px, 54vw);
+    max-width: min(210px, 54vw);
+    height: auto;
+    object-fit: contain;
+  }
+
+  /* `.luxury-logo-box` is an inline anchor, so its own box collapses to the
+     line-height (23px) while the img renders taller — the strip's vertical
+     centring was working off the wrong height. */
+  .luxury-logo-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Header action icons: even spacing, comfortable touch size. */
+  .header-actions-group {
+    gap: 4px !important;
+  }
+
+  .header-actions-group > a {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* The desktop search is a click-to-expand input driven by inline onfocus
+     handlers that animate `width` from 0. That interaction is unreliable on
+     touch, so on tablet/phone the magnifier simply links into the drawer's
+     always-visible search field. */
+  .luxury-search-form {
+    display: none !important;
+  }
+
+  /* Cart pill: keep the bag, drop the price label so the row always fits. */
+  .header-cart-link {
+    padding: 0 !important;
+    width: 44px;
+    height: 44px;
+    border-radius: 50% !important;
+    gap: 0 !important;
+    position: relative;
+  }
+
+  .header-cart-link > span {
+    display: none;
+  }
+
+  .header-cart-link > i {
+    font-size: 17px !important;
+  }
+
+  /* Item-count bubble replaces the hidden "£0.00 (0)" text. */
+  .header-cart-link[data-cart-count]::after {
+    content: attr(data-cart-count);
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #c9a96e;
+    color: #11261f;
+    font-family: var(--sans), sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+  }
+
+  .header-cart-link[data-cart-count="0"]::after {
+    display: none;
+  }
+
+  /* Sticky-shrink is disabled below 1025px (see header.php); make sure a
+     stale class from a resize can never leave the header floating. */
+  #main-site-header.is-sticky {
+    position: relative !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+
+  /* ------------------------------------------------------------------
+     PROMO STRIP
+
+     Three benefit items plus pipe separators are laid out inline. Left to
+     wrap they stacked into three rows — a 107px block of centred caps above
+     the header, which is what "not mobile friendly" refers to. Turn the row
+     into a single-line swipe rail instead: the strip drops to ~36px, and the
+     fade on the trailing edge (see the shared rail affordance further down)
+     shows there is more to the right.
+     ------------------------------------------------------------------ */
+  .promo-strip .container {
+    padding: 0 !important;
+  }
+
+  .promo-strip .promo-item {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 9px 16px;
+    font-size: 11px !important;
+    letter-spacing: 0.2px !important;
+    line-height: 1.4;
+    /* Fades the right edge so the row reads as continuing off-screen. */
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 34px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 34px), transparent 100%);
+  }
+
+  .promo-strip .promo-item::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Inner items are inline-block; stop them shrinking or breaking mid-phrase. */
+  .promo-strip .promo-item .promo-item {
+    flex: 0 0 auto;
+    padding: 0;
+    overflow: visible;
+    white-space: nowrap;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .promo-strip .promo-item small {
+    font-size: 10.5px;
+  }
+
+  /* Pipes separate the items now that they share one line, but the desktop
+     22px side margin is far too wide at this scale. */
+  .promo-strip .promo-item > span {
+    flex: 0 0 auto;
+    margin: 0 12px !important;
+  }
+
+  /* ------------------------------------------------------------------
+     OFF-CANVAS NAV DRAWER
+
+     `nav.mnav` is the drawer panel; it slides in from the left. The burger
+     lives outside the panel so it stays tappable while the panel is closed.
+     ------------------------------------------------------------------ */
+
+  /* nav.php carries desktop inline styles (background:transparent; width:100%),
+     and an inline declaration outranks any selector, so the drawer surface has to
+     be reclaimed with !important. This is scoped inside the <=1024px query, so the
+     inline desktop values still win untouched on laptops. */
+  nav.mnav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(86vw, 380px) !important;
+    max-width: 380px;
+    margin: 0;
+    padding: 0 !important;
+    background: #fff !important;
+    border: none !important;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.18);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.3s;
+    z-index: 100000;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  nav.mnav.is-open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
+  }
+
+  nav.mnav .d-flex-nav {
+    /* Inline style on this div is display:flex;justify-content:center — override
+       it so drawer rows stack full-bleed instead of centring on the pill. */
+    display: block !important;
+    width: 100%;
+    padding: 0;
+  }
+
+  .luxury-mnav-pill {
+    display: block !important;
+    width: 100%;
+    /* Side padding lives here rather than on nav.mnav so the drawer head/search/
+       foot can still run full-bleed to the panel edges. */
+    padding: 0 20px 32px !important;
+    background: transparent;
+    box-shadow: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* --- Burger button ---
+     Lives in the header row via the `nav` grid area, so it stays in normal
+     flow while the drawer is closed. */
+  .mnav-toggle {
+    display: inline-grid;
+    grid-auto-rows: 2px;
+    align-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    z-index: 100002;
+  }
+
+  .mnav-toggle span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: #11261f;
+    border-radius: 999px;
+    transition: transform 0.24s ease, opacity 0.2s ease;
+  }
+
+  /* While the drawer is open the burger becomes a close (X) affordance and
+     moves onto the panel's top-right. Keyed off body.mnav-open because the
+     toggle is a SIBLING of <nav>, not a descendant. */
+  body.mnav-open .mnav-toggle {
+    position: fixed;
+    top: 16px;
+    left: min(86vw, 380px);
+    margin-left: -56px;
+  }
+
+  body.mnav-open .mnav-toggle span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  body.mnav-open .mnav-toggle span:nth-child(2) {
+    opacity: 0;
+  }
+
+  body.mnav-open .mnav-toggle span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  /* --- Scrim behind the open drawer --- */
+  .mnav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 22, 18, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+    z-index: 99999;
+  }
+
+  .mnav-scrim.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease, visibility 0s linear 0s;
+  }
+
+  body.mnav-open {
+    overflow: hidden;
+  }
+
+  /* The drawer, scrim and burger all live inside `.header-luxury-wrapper`,
+     which is `position: relative; z-index: 100`. That wrapper is a stacking
+     context, so the drawer's z-index of 100000 only ranks it *within* the
+     header — against the rest of the page it is still just "100", and the
+     cookie banner (z-index 540) painted over the open drawer and swallowed taps
+     on most of the nav links. Lift the whole wrapper for the duration of the
+     open drawer instead of restacking anything inside it, so the header's
+     internal layering is unchanged. */
+  body.mnav-open .header-luxury-wrapper {
+    z-index: 100000;
+  }
+
+  /* --- Drawer top strip (logo + room for the X) --- */
+  .mnav-drawer-head {
+    display: flex;
+    align-items: center;
+    min-height: 72px;
+    /* Right inset clears the close button, which is positioned over this strip. */
+    padding: 14px 76px 14px 20px;
+    border-bottom: 1px solid #ececec;
+  }
+  /* The close button is absolutely positioned over the right end of this strip,
+     so the logo has to be capped rather than left at its natural width — at
+     340px drawer width it otherwise runs under the X. */
+  .mnav-drawer-head img {
+    height: 28px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  /* --- Drawer search --- */
+  .mnav-drawer-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 20px 8px;
+    padding: 0 14px;
+    height: 46px;
+    border: 1px solid #e2e2e2;
+    border-radius: 999px;
+    background: #fafafa;
+  }
+
+  .mnav-drawer-search input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    font-size: 16px;
+    font-family: var(--sans), sans-serif;
+    color: #11261f;
+  }
+
+  .mnav-drawer-search button {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #11261f;
+    cursor: pointer;
+  }
+
+  /* --- Top-level nav rows --- */
+  .mnav-item,
+  .mnav-item.has-mega {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    align-items: center;
+    width: 100%;
+    /* Side inset comes from .luxury-mnav-pill, so rows stay flush with it. */
+    padding: 0 !important;
+    border-bottom: 1px solid #f0f0f0;
+    position: relative;
+  }
+
+  .mnav-item > a,
+  .luxury-mnav-pill .mnav-item > a,
+  .mnav.luxury-mnav .mnav-item > a {
+    display: flex;
+    align-items: center;
+    min-height: 54px;
+    padding: 14px 0 !important;
+    font-family: 'Montserrat', var(--sans), sans-serif;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.09em !important;
+    text-transform: uppercase;
+    color: #11261f !important;
+    background: transparent !important;
+  }
+
+  /* The chevron inside the link duplicates the dedicated toggle button. */
+  .mnav-item > a > i.fa-chevron-down {
+    display: none !important;
+  }
+
+  /* Hover underline is a pointer affordance; irrelevant on touch. */
+  .mnav-item > a .nav-underline {
+    display: none !important;
+  }
+
+  .mnav-item-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 44px;
+    height: 54px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #11261f;
+    cursor: pointer;
+    transition: transform 0.24s ease, color 0.24s ease;
+  }
+
+  .mnav-item.is-open > .mnav-item-toggle {
+    color: #c9a96e;
+    transform: rotate(180deg);
+  }
+
+  /* --- Submenu (mega panel becomes an inline accordion) ---
+
+     Three things drive the shape of these rules:
+
+     1. The collapse is max-height, not `grid-template-rows: 0fr/1fr`. The row
+        trick needs the animated box to be the grid container of its content;
+        here the panel is itself a grid ITEM of `.mnav-item`, and the nested
+        0fr resolved the inner wrapper to 14px, clipping every submenu link.
+
+     2. style.css sets `transform: translateX(-50%) ... !important` on both
+        `.mega-drop-wide` and `.luxury-mnav .mnav-item.has-mega:hover
+        .mega-drop-wide`, which would drag the panel half its width off-screen.
+        Out-specifying the hover variant needs a :hover of our own — but that
+        selector must NOT also carry max-height, or it (0,6,1) outranks the
+        `.is-open` rule (0,5,1) and the panel can never expand, since a tap
+        leaves the item hovered. So hover resets geometry only; the open/closed
+        heights stay in hover-free rules.
+
+     3. opacity/visibility stay tied to `.is-open` rather than being forced to
+        1/visible for the whole breakpoint. Forcing them meant a CLOSED panel
+        was fully opaque (hidden only by max-height:0), so dragging a window
+        back across 1025px handed the desktop rule an opacity of 1 to animate
+        down from — every mega panel flashed over the page for ~250ms. */
+  .mega-drop,
+  .mega-drop-wide,
+  nav.mnav.luxury-mnav .mnav-item.has-mega .mega-drop,
+  nav.mnav.luxury-mnav .mnav-item.has-mega .mega-drop-wide {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    grid-column: 1 / -1;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    display: block !important;
+    /* Collapsed by default; the accordion reveals it. */
+    opacity: 0 !important;
+    visibility: hidden !important;
+    max-height: 0;
+    overflow: hidden !important;
+    transition: max-height 0.34s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  /* Geometry only — deliberately no max-height/opacity here (see notes 2 & 3). */
+  nav.mnav.luxury-mnav .mnav-item.has-mega:hover .mega-drop,
+  nav.mnav.luxury-mnav .mnav-item.has-mega:hover .mega-drop-wide {
+    position: static !important;
+    left: auto !important;
+    width: auto !important;
+    transform: none !important;
+  }
+
+  /* Ceiling only — the panel keeps its natural height, so no submenu is cut. */
+  nav.mnav.luxury-mnav .mnav-item.is-open > .mega-drop,
+  nav.mnav.luxury-mnav .mnav-item.is-open > .mega-drop-wide {
+    opacity: 1 !important;
+    visibility: visible !important;
+    max-height: 2200px;
+  }
+
+  /* The hover bridge is a desktop-only device. */
+  .mega-drop::before,
+  .mega-drop-wide::before,
+  .mega-drop::after,
+  .mega-drop-wide::after,
+  .luxury-mnav .mnav-item.has-mega .mega-drop::before,
+  .luxury-mnav .mnav-item.has-mega .mega-drop-wide::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  .mega-drop > *,
+  .mega-drop-wide > * {
+    min-height: 0;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .luxury-mega-menu,
+  .mega-inner {
+    display: block !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 0 14px !important;
+    gap: 0 !important;
+    background: transparent !important;
+  }
+
+  .mega-col,
+  .mega-col + .mega-col,
+  .mega-col:last-of-type {
+    padding: 12px 0 !important;
+    border: 0 !important;
+    border-top: 1px solid #f4f4f4 !important;
+  }
+
+  .mega-col:first-child {
+    border-top: 0 !important;
+  }
+
+  .mega-col-title {
+    font-size: 11px !important;
+    letter-spacing: 0.14em !important;
+    color: #8d8d8d !important;
+    margin-bottom: 6px !important;
+  }
+
+  /* Every submenu row is a real tap target. */
+  .mega-col a,
+  .mega-link-with-image,
+  .mega-metal-link,
+  .mega-shape-link,
+  .mega-show-all-btn {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 0 !important;
+    font-size: 14px !important;
+    line-height: 1.35;
+  }
+
+  .mega-link-with-image .img-wrap,
+  .mega-metal-link .mega-metal-disc {
+    flex: 0 0 auto;
+  }
+
+  /* These rows use margin:0 -10px + padding:0 10px so their hover fill bleeds
+     past the column. The accordion panel clips at overflow:hidden, so on mobile
+     the bleed cuts the leading disc/thumbnail off. Drop both. */
+  nav.mnav .mega-col .mega-metal-link,
+  nav.mnav .mega-col .mega-link-with-image {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .mega-show-all-btn {
+    justify-content: flex-start !important;
+    margin-top: 4px;
+    font-weight: 700 !important;
+    color: #c9a96e !important;
+  }
+
+  /* The promotional feature card is decorative; it doubles drawer length. */
+  .mega-col-feature-card,
+  .mega-feature {
+    display: none !important;
+  }
+
+  /* --- Drawer footer: the links displaced from the header --- */
+  .mnav-drawer-foot {
+    display: grid;
+    gap: 4px;
+    margin-top: 8px;
+    padding: 16px 20px 0;
+  }
+
+  .mnav-drawer-foot a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    font-family: var(--sans), sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #11261f;
+    text-decoration: none;
+  }
+
+  .mnav-drawer-foot a i {
+    width: 20px;
+    color: #c9a96e;
+    text-align: center;
+  }
+
+  /* ------------------------------------------------------------------
+     END-OF-PAGE CTA BLOCKS
+
+     The tail of the home page ran ~2500px on a phone. Two causes, both
+     desktop dimensions applied literally at 390px:
+
+     - The newsletter banner carries an inline `height: 550px`
+       (newsletter.php) with an `object-fit: cover` image. On a phone that
+       crops a landscape banner into a 362x550 portrait slot, so the
+       subject is mostly outside the frame. Drive it off an aspect ratio
+       instead so the whole image is in view at any width.
+     - `.discover-service-card` keeps its 4/3 media when the grid drops to
+       one column, giving three 320px cards stacked to 1000px.
+     ------------------------------------------------------------------ */
+  .custom-banner-section {
+    margin: 34px 0 !important;
+  }
+
+  .custom-banner-section .banner-container {
+    height: auto !important;
+    aspect-ratio: 4 / 3;
+    border-radius: 14px !important;
+  }
+
+  .discover-service-section {
+    padding: 34px 0 20px;
+  }
+
+  .discover-service-title {
+    margin-bottom: 22px;
+  }
+
+  .discover-service-media {
+    aspect-ratio: 16 / 10;
+  }
+
+  .discover-service-label {
+    padding: 12px 4px 4px;
+  }
+
+  .dual-cta-section {
+    padding: 24px 0;
+  }
+
+  /* ------------------------------------------------------------------
+     AZURONN NEWS
+
+     "VIEW ALL NEWS" carries an inline `position: absolute; top: 120px`
+     (news.php) so it can tuck beside the centred heading on a wide screen.
+     Below 1025px the heading wraps taller and the button lands on top of
+     the description line. Un-absolute it and let it sit under the header
+     as a normal centred row — same link, same destination.
+     ------------------------------------------------------------------ */
+  .news-head-row {
+    flex-direction: column;
+    align-items: center !important;
+    gap: 18px;
+    margin-bottom: 8px !important;
+  }
+
+  .news-viewall {
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
+  }
+
+  .news-viewall a {
+    min-height: 44px;
+  }
+
+  /* 40px of top padding inside each card is a desktop rhythm; at 3 stacked
+     cards it costs ~200px of the section for nothing. */
+  .news-card-body-premium {
+    padding: 20px 18px 20px;
+  }
+
+  .news-title-premium {
+    font-size: 1.15rem;
+    margin-bottom: 10px;
+  }
+
+  .news-excerpt-premium {
+    font-size: 0.86rem;
+    margin-bottom: 16px;
+  }
+
+  .news-cat-label {
+    margin-bottom: 8px;
+  }
+
+  .news-section {
+    padding: 40px 20px !important;
+  }
+
+  /* ------------------------------------------------------------------
+     FAQ
+
+     2024px tall on a 390px screen. The list itself is content (14
+     questions) so the length is inherent, but almost every gap around it
+     was a desktop rhythm: 160px of section padding, a 50px header margin,
+     a 40px grid gap, and 40px of vertical padding per summary row — that
+     last one alone padding the list by ~280px. Tighten the chrome and let
+     the questions sit closer together; nothing is hidden or collapsed, so
+     every answer is still reachable exactly as before.
+     ------------------------------------------------------------------ */
+  .faq-section-v2 {
+    padding: 44px 0;
+  }
+
+  .faq-v2-header {
+    margin-bottom: 24px;
+  }
+
+  .faq-v2-kicker {
+    margin-bottom: 8px;
+  }
+
+  .faq-v2-grid {
+    gap: 28px;
+  }
+
+  .faq-v2-summary {
+    padding: 13px 0;
+    font-size: 14.5px;
+    line-height: 1.4;
+    gap: 14px;
+    min-height: 44px;
+  }
+
+  .faq-v2-answer {
+    padding: 0 0 15px;
+  }
+
+  .faq-v2-answer p {
+    font-size: 13.5px;
+    line-height: 1.65;
+  }
+
+  /* Booking card sat at 457px below the list — a second full screen of
+     scrolling after the questions. */
+  .faq-v2-booking-img {
+    aspect-ratio: 16 / 7;
+  }
+
+  .faq-v2-booking-body {
+    padding: 20px 18px;
+  }
+
+  .faq-v2-booking-body p {
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  /* ------------------------------------------------------------------
+     HORIZONTAL RAILS — SCROLL AFFORDANCE
+
+     The category, product and style rails all scroll sideways, but on a
+     phone nothing said so. Two causes:
+
+     1. `.section-nav-arrows` is `display: none` below 768px (style.css), and
+        the in-rail `.category-showcase-nav` / `.product-rail-nav` buttons are
+        not rendered by the partials at all. Yet the shells keep a 42-58px
+        side padding reserved for those absent arrows, which squeezed the
+        254px viewport inside a 390px screen and cropped the cards to a flush
+        edge — so the row read as a fixed block, not a scroller.
+
+     2. No fade or peek at the trailing edge to signal "more to the right".
+
+     Reclaim the dead arrow gutter, then bleed the rail to the viewport edge
+     and fade it out, matching the `mask-image` idiom already used by
+     `.reviews-marquee-container`. The next card now peeks in under the fade.
+     Purely visual — the tracks already scrolled and still do, and no JS or
+     markup changes, so behaviour is untouched.
+     ------------------------------------------------------------------ */
+  .category-showcase-shell,
+  .product-rail-shell,
+  .shop-style-shell {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .category-showcase-track,
+  .best-grid,
+  .shop-style-track,
+  .diamond-shape-controls.minimal-controls {
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 40px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 40px), transparent 100%);
+  }
+
+  /* Left inset keeps the first card off the screen edge now that the shell
+     padding is gone; the right side stays short so the next card peeks. */
+  .category-showcase-track,
+  .best-grid,
+  .shop-style-track {
+    padding-left: 16px;
+    padding-right: 44px;
+    scroll-padding-left: 16px;
+  }
+
+  /* `overflow: hidden` on the product viewport clipped the peeking card. */
+  .product-rail-viewport,
+  .shop-style-viewport,
+  .category-showcase-viewport {
+    overflow: visible;
+  }
+
+  /* A progress bar under each rail — the one cue that survives when a
+     user cannot see the fade (reduced transparency, high-contrast mode).
+
+     The shell is the track; `::after` is the thumb that rides it. Width
+     and offset come from --rail-fill / --rail-pos, which main.js writes
+     from the track's live scrollLeft. The defaults below render a
+     sensible resting state (a 34% thumb parked at the left) if the JS
+     has not run yet, so the bar is never blank.
+
+     `position: relative` on the shell is safe: all three shells are
+     static in style.css and contain no absolutely-positioned children. */
+  .category-showcase-shell,
+  .product-rail-shell,
+  .shop-style-shell,
+  .diamond-shape-layout.minimal-layout {
+    position: relative;
+    padding-bottom: 13px;
+  }
+
+  .category-showcase-shell::before,
+  .product-rail-shell::before,
+  .shop-style-shell::before,
+  .diamond-shape-layout.minimal-layout::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 5px;
+    transform: translateX(-50%);
+    width: 54px;
+    height: 3px;
+    border-radius: 3px;
+    background: rgba(201, 169, 110, 0.22);
+  }
+
+  .category-showcase-shell::after,
+  .product-rail-shell::after,
+  .shop-style-shell::after,
+  .diamond-shape-layout.minimal-layout::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 5px;
+    height: 3px;
+    border-radius: 3px;
+    background: #c9a96e;
+    width: calc(54px * var(--rail-fill, 0.34));
+    /* Park the thumb at the track's left edge, then advance it across the
+       leftover span by --rail-pos (0 at scroll start, 1 at the end). */
+    transform: translateX(calc(-27px + (54px - 54px * var(--rail-fill, 0.34)) * var(--rail-pos, 0)));
+    transition: width 0.12s linear;
+  }
+
+  /* No rail, no affordance — a merchant can empty any of these sections. */
+  .category-showcase-shell:has(.category-showcase-track:empty)::before,
+  .product-rail-shell:has(.best-grid:empty)::before,
+  .shop-style-shell:has(.shop-style-track:empty)::before,
+  .category-showcase-shell:has(.category-showcase-track:empty)::after,
+  .product-rail-shell:has(.best-grid:empty)::after,
+  .shop-style-shell:has(.shop-style-track:empty)::after {
+    display: none;
+  }
+
+  /* A rail with nothing to scroll would otherwise show a permanently
+     full bar, which reads as a broken control. */
+  .category-showcase-shell[data-rail-static]::before,
+  .product-rail-shell[data-rail-static]::before,
+  .shop-style-shell[data-rail-static]::before,
+  .diamond-shape-layout.minimal-layout[data-rail-static]::before,
+  .category-showcase-shell[data-rail-static]::after,
+  .product-rail-shell[data-rail-static]::after,
+  .shop-style-shell[data-rail-static]::after,
+  .diamond-shape-layout.minimal-layout[data-rail-static]::after {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .category-showcase-shell::after,
+    .product-rail-shell::after,
+    .shop-style-shell::after,
+    .diamond-shape-layout.minimal-layout::after {
+      transition: none;
+    }
+  }
+
+  /* ------------------------------------------------------------------
+     CONTENT OVERFLOW FIXES
+     ------------------------------------------------------------------ */
+
+  /* Diamond-shape chips were `flex-wrap: nowrap` with no scroll container,
+     so the row ran ~1090px wide regardless of viewport. Make it a swipeable
+     rail on touch. */
+  .diamond-shape-controls.minimal-controls {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 44px 0 16px;
+  }
+
+  .diamond-shape-controls.minimal-controls::-webkit-scrollbar {
+    display: none;
+  }
+
+  .minimal-chip {
+    flex: 0 0 auto;
+    scroll-snap-align: center;
+  }
+
+  /* Footer feature strip: 3 items across a phone/tablet is unreadable. */
+  .footer-features-box {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 18px;
+    padding: 18px 20px;
+  }
+
+  .feature-item,
+  .feature-item:first-child,
+  .feature-item:last-child {
+    border-right: 0;
+    padding: 10px 0;
+  }
+
+  /* The cart's "you may also like" grid carries an inline
+     `grid-template-columns: repeat(4, 1fr)` (cart/index.php), which outranks the
+     max-width rules style.css already defines for .shop-product-grid — so the
+     cards stayed 4-across and bled past both viewport edges on phones. !important
+     is the only way past an inline declaration; scoped to <=1024px so the
+     desktop 4-across layout is untouched. */
+  .shop-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* ------------------------------------------------------------------
+     PRODUCT CARDS ON TOUCH
+
+     `.prod-card` is `align-items: center` with no width on the body, so
+     `.prod-card-body` shrink-wrapped to its widest child — 130px of content
+     floating in the middle of a 354px card, with the name breaking to
+     "test" over two lines. And `.prod-hover-btn` is `opacity: 0` until
+     `:hover`, which never fires on a touchscreen, so it reserved 40px of
+     blank space and the CTA was simply unreachable. Both are why the
+     "Related Pieces" block reads as empty.
+     ------------------------------------------------------------------ */
+  .prod-card-body {
+    width: 100%;
+    padding: 14px 4px 0;
+  }
+
+  .prod-card .prod-name,
+  .prod-card .prod-desc,
+  .prod-card .prod-prices-premium {
+    width: 100%;
+  }
+
+  /* No hover state on touch — show the CTA permanently. */
+  .prod-card .prod-hover-btn {
+    opacity: 1;
+    transform: none;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  /* ------------------------------------------------------------------
+     PRODUCT PAGE — LOWER SECTION
+     ------------------------------------------------------------------ */
+
+  /* auto-fit at minmax(150px, 1fr) yields two 165px tracks on a phone, so
+     "Design Styles" dropped to a second row and left a ragged hole beside
+     it. A single column keeps the label/value pairs reading as one list. */
+  body.product-page .pp-meta {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 22px;
+    padding-top: 18px;
+  }
+
+  body.product-page .pp-meta strong {
+    overflow-wrap: anywhere;
+  }
+
+  /* 84px + 56px of rule-to-heading space is a desktop rhythm; on a phone it
+     reads as the section having failed to load. */
+  body.product-page .pp-related {
+    margin-top: 40px;
+    padding-top: 30px;
+  }
+
+  body.product-page .pp-related .sec-hdr-premium {
+    margin-bottom: 20px;
+  }
+
+  /* Trust badges wrapped 2x2 with uneven column widths. */
+  body.product-page .pp-trust {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+  }
+
+  /* Back-to-top must not sit under the sticky product buy-bar. */
+  .scroll-top {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* ------------------------------------------------------------------
+     TOUCH ERGONOMICS
+     ------------------------------------------------------------------ */
+
+  /* iOS zooms the page whenever a focused field is under 16px.
+     !important because several component sheets set a smaller size with a
+     class-qualified selector (e.g. `.footer-nl-form input[type="email"]`,
+     `body.shop-page .sl-select`) that outranks a bare type selector. Scoped to
+     <=1024px, so desktop field sizing is untouched. */
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Checkbox/radio hit areas were 13–15px. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+  }
+
+  .toggle-password {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-grid;
+    place-items: center;
+  }
+
+  /* Small footer / policy controls. */
+  .footer-cookie-settings,
+  .foot-btm-links a,
+  .premium-forgot {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* Footer link columns render 11px text in a 19px-tall row — under half the
+     44px touch minimum, and the two grid columns sit close enough that a thumb
+     hits the wrong one. Grow the row, not the type: the links stay visually the
+     same size, they just get a taller hit area. */
+  .foot-col ul li a {
+    min-height: 40px;
+    align-items: center;
+  }
+
+  /* Nothing should render below ~12px on a handheld. */
+  .promo-strip small,
+  .foot-copy,
+  .foot-copy .brand-name,
+  .foot-copy .author-name,
+  .category-showcase-kicker,
+  .price-prefix,
+  .pp-crumb-current,
+  .pp-shape-name,
+  .pp-metal-name,
+  .pp-sticky-total-label {
+    font-size: 12px !important;
+  }
+
+  /* ------------------------------------------------------------------
+     FOOTER
+
+     1853px on a 390px screen, and disorganised: the four columns each get
+     16px of padding and stack full-width with no visual separation, the
+     features box runs 4 rows deep, and the 8 bottom links plus their pipe
+     separators wrap over four ragged rows at 44px each (177px). Nothing is
+     removed — the same links, the same order — but the two link columns
+     pair up side by side, the pipes go away in favour of a proper grid,
+     and the section rhythm is scaled to the viewport.
+     ------------------------------------------------------------------ */
+  .footer-premium {
+    padding-top: 30px;
+  }
+
+  .foot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 16px;
+    margin-bottom: 4px;
+    align-items: start;
+  }
+
+  /* Brand block and newsletter need the full width; the two link lists
+     read better as a pair than as two more full-width stacks. The
+     `.foot-col:first-child` rules in style.css outrank a single class, so
+     these have to be pseudo-qualified to match. */
+  .foot-grid .foot-col-brand:first-child,
+  .foot-grid .foot-col-newsletter:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* At <=480 style.css splits each link list into two sub-columns; inside a
+     two-column grid that makes four ~80px columns of clipped labels. */
+  .foot-grid .foot-col ul {
+    display: block;
+  }
+
+  .foot-col {
+    padding: 12px 0 !important;
+  }
+
+  .foot-col-brand {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  }
+
+  .foot-col h4 {
+    margin-bottom: 8px;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+  }
+
+  /* 40px rows plus a 1.85 line-height spread six links over ~330px. The
+     hit area stays comfortably past the touch minimum at 36px. */
+  .foot-col ul li a {
+    min-height: 36px;
+    line-height: 1.4;
+  }
+
+  /* Purely decorative divider under each column heading; at this width it
+     is just another row of height. */
+  .footer-ornament {
+    display: none;
+  }
+
+  .foot-col ul li {
+    margin-bottom: 0;
+  }
+
+  .footer-desc {
+    max-width: none;
+    margin-bottom: 12px;
+  }
+
+  .footer-contact .contact-item {
+    margin-bottom: 8px;
+    gap: 12px;
+  }
+
+  .footer-features-box {
+    margin-top: 18px;
+    margin-bottom: 16px;
+  }
+
+  /* The pipe separators only made sense on one line. Two even columns
+     give the links a predictable left edge instead of a ragged wrap. */
+  .foot-btm-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 14px;
+    padding: 10px 0 4px;
+    margin-bottom: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+  }
+
+  .foot-btm-links .sep {
+    display: none;
+  }
+
+  .foot-btm-links a,
+  .footer-cookie-settings {
+    min-height: 38px;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .foot-copy {
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+
+  .pay-row {
+    justify-content: center;
+    padding-bottom: 16px;
+  }
+
+
+  /* ------------------------------------------------------------------
+     HOME HERO
+
+     The hero is a full-bleed poster: every text field in site-content
+     (offer / title / price / cta) is empty, so the artwork itself
+     carries the wording. style.css sized it for desktop —
+     `min-height: 700px` with `background-size: cover` — and the phone
+     overrides then fought that by collapsing it to an 86px strip at
+     `opacity: .12`, which cropped the baked-in "MOTHER'S DAY SALE"
+     down to an unreadable sliver.
+
+     Drive the height from the image's own 1832x917 (2:1) ratio instead
+     and show it at full strength. Nothing is cropped and nothing is
+     letterboxed at any width. `min-height` has to be cleared or it
+     wins over the aspect ratio on short viewports.
+     ------------------------------------------------------------------ */
+  .hero {
+    min-height: 0;
+    padding: 0;
+    background: #fbfbf8;
+    display: block;
+    overflow: hidden;
+  }
+
+  .hero-bg,
+  .hero-video {
+    position: relative;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1832 / 917;
+    opacity: 1;
+    background-size: cover;
+    background-position: center;
+  }
+
+  /* The overlay is a scrim for hero copy. With no copy it only greys
+     out the artwork, and it would also stretch the (now static) flow. */
+  .hero-overlay {
+    display: none;
+  }
+
+  /* Keep the empty text nodes from reserving space above the poster. */
+  .hero-container {
+    position: absolute;
+    padding: 0;
+  }
+
+  .hero-content:empty,
+  .hero-offer:empty,
+  .hero-title:empty,
+  .hero-price:empty {
+    display: none;
+  }
+
+
+  /* ------------------------------------------------------------------
+     ACCOUNT PAGE
+
+     The hero is a side-by-side flex row (`justify-content: space-between`)
+     with a fixed `padding: 40px 60px` and a 3.5rem heading. On a phone
+     the 120px of side padding plus the action buttons left the text
+     column ~133px wide, so the intro paragraph broke to one word per
+     line and the gold "Open Wishlist" button was pushed past the card's
+     right edge and clipped by the hero's own `overflow: hidden`.
+
+     Stack the two halves and scale the padding and heading down.
+     ------------------------------------------------------------------ */
+  .account-page .premium-account-hero {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 26px;
+    padding: 32px 26px;
+    min-height: 0;
+    margin: 28px auto;
+  }
+
+  /* The gradient scrim runs left-to-right for a side-by-side layout; on a
+     stacked card the lower half loses its dark backing and the button
+     labels drop to near-zero contrast against the photo. */
+  .account-page .premium-account-hero::before {
+    background: linear-gradient(180deg, rgba(13, 44, 30, 0.95) 0%, rgba(13, 44, 30, 0.86) 62%, rgba(13, 44, 30, 0.78) 100%);
+  }
+
+  .account-page .hero-text-col {
+    max-width: none;
+  }
+
+  .account-page .hero-heading {
+    font-size: clamp(2rem, 8vw, 2.9rem);
+    margin-bottom: 12px;
+  }
+
+  .account-page .hero-text-col p {
+    font-size: 0.95rem;
+    margin-bottom: 0;
+  }
+
+  /* The <br> in the intro copy is placed for a 700px column. */
+  .account-page .hero-text-col p br {
+    display: none;
+  }
+
+  .account-page .hero-actions-col-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .account-page .hero-btn-gold,
+  .account-page .hero-btn-dark-outline {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 46px;
+  }
+
+
+  /* ------------------------------------------------------------------
+     ORDER DETAIL PAGE
+
+     `.account-hero-actions` holds three uppercase buttons in a
+     `flex-shrink: 0` row, so it stayed 478px wide inside a 314px
+     container and ran off the screen. The invoice line grid also keeps
+     a third column for the line total, which squeezed the product name.
+     ------------------------------------------------------------------ */
+  .order-detail-page .account-hero.order-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+    padding-top: 28px;
+  }
+
+  .order-detail-page .account-hero-actions {
+    flex-shrink: 1;
+    width: 100%;
+  }
+
+  .order-detail-page .account-hero-actions .store-btn-secondary {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  /* Product name and price stack under the thumbnail rather than
+     competing for a ~200px middle column. */
+  .order-detail-page .invoice-line-card {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+
+  .order-detail-page .invoice-line-total {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  /* ------------------------------------------------------------------
+     LOGIN / CREATE ACCOUNT
+
+     Four nested desktop paddings compound on a phone: section 30 +
+     layout 14 + form-side 40 + box 45 per side = 237px of a 390px
+     viewport, leaving the form 153px wide. Inputs then reserve 45px of
+     padding per side for their icons, so ~63px is left for the text and
+     every placeholder clips. Collapse the inner chrome and let the box
+     own the padding.
+     ------------------------------------------------------------------ */
+  .premium-auth-section {
+    padding: 24px 0;
+  }
+
+  .premium-auth-layout {
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+    gap: 0;
+  }
+
+  .premium-auth-form-side {
+    padding: 0;
+  }
+
+  .premium-auth-box {
+    padding: 26px 20px;
+    min-height: 0;
+    max-width: none;
+    border-radius: 16px;
+  }
+
+  /* The decorative poster costs a full screen before the form appears.
+     Keep it as a short banner under the form instead of a barrier above. */
+  .premium-auth-brand {
+    order: 2;
+    padding: 34px 24px;
+    margin-top: 22px;
+    border-radius: 16px;
+  }
+
+  .premium-auth-form-side {
+    order: 1;
+  }
+
+  .premium-auth-tabs {
+    margin-bottom: 24px;
+  }
+
+  .premium-auth-tab {
+    padding: 14px 4px;
+    font-size: 13px;
+    line-height: 1.25;
+    min-height: 46px;
+  }
+
+  /* Icon gutters sized to the icons (16px inset + ~14px glyph), not 45px. */
+  .premium-input-wrap input {
+    padding: 0 42px 0 40px !important;
+    height: 50px;
+    font-size: 15px;
+  }
+
+  .premium-input-wrap input:not([type="password"]) {
+    padding-right: 14px !important;
+  }
+
+  /* "Remember Me" and "Forgot Password?" collide at 153px; give each a row. */
+  .premium-form-actions {
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin-top: 0;
+  }
+
+  .premium-checkbox,
+  .premium-forgot {
+    min-height: 40px;
+  }
+
+  .premium-btn-submit {
+    min-height: 50px;
+    width: 100%;
+  }
+
+  /* Two-up name/phone and password/confirm rows are unusable side by side. */
+  .premium-field-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  /* The tab-switch link at the foot of each form is a 19px inline anchor. */
+  .premium-form-switch a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+  }
+}
+
+
+/* ==========================================================================
+   2. PHONE  (<= 767px)
+   ========================================================================== */
+@media (max-width: 767px) {
+
+  .luxury-logo-box img.main-header-logo-img {
+    width: min(190px, 52vw);
+    max-width: min(190px, 52vw);
+  }
+
+  .header-grid-center,
+  .header-grid-right {
+    padding: 8px 0;
+  }
+
+  .header-actions-group > a {
+    min-width: 40px;
+  }
+
+  /* Wishlist + account icons are secondary on a phone; they live in the
+     drawer footer. Keeps the row from crowding the logo. */
+  .header-actions-group > a:not(.header-cart-link) {
+    display: none !important;
+  }
+
+  .promo-strip .promo-item {
+    font-size: 10.5px !important;
+  }
+
+  /* One feature per row below 768. */
+  /* One feature per row below 768. */
+  .footer-features-box {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .feature-item {
+    gap: 12px;
+    padding: 7px 0 !important;
+  }
+
+  /* Cookie banner: buttons full-width, card fits the viewport. */
+  .cookie-banner,
+  .cookie-settings-launcher {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .cookie-banner-card {
+    max-width: 100%;
+    padding: 20px 18px;
+  }
+
+  .cookie-banner-actions {
+    display: grid;
+    gap: 8px;
+  }
+
+  .cookie-btn {
+    width: 100%;
+    min-height: 46px;
+  }
+}
+
+
+/* ==========================================================================
+   3. SMALL PHONE  (<= 480px)
+   ========================================================================== */
+@media (max-width: 480px) {
+
+  .container {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .luxury-logo-box img.main-header-logo-img {
+    width: min(168px, 50vw);
+    max-width: min(168px, 50vw);
+  }
+
+  nav.mnav {
+    width: min(90vw, 340px) !important;
+  }
+
+  body.mnav-open .mnav-toggle {
+    left: min(90vw, 340px);
+  }
+
+  .promo-strip .promo-item {
+    font-size: 10.5px !important;
+  }
+
+  /* Two product cards abreast leaves ~150px each — the price and CTA wrap. */
+  .shop-product-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}

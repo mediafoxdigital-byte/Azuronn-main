@@ -1,0 +1,114 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [ 6 0 R ] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Title (Azuronn Invoice ord-24006) /Producer (Azuronn) >>
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 3272 >>
+stream
+BT /F2 17 Tf 1 0 0 1 48.00 792.00 Tm (AZURONN) Tj ET
+BT /F2 12 Tf 1 0 0 1 470.98 792.00 Tm (TAX INVOICE) Tj ET
+0.450 0.450 0.450 rg
+BT /F1 7.5 Tf 1 0 0 1 48.00 779.00 Tm (Azuronn Fine Jewellery   •   demo@example.com   •   0123456789) Tj ET
+0 0 0 rg
+0.450 0.450 0.450 rg
+BT /F1 7.5 Tf 1 0 0 1 517.40 779.00 Tm (localhost) Tj ET
+0 0 0 rg
+0.690 0.550 0.340 rg 48.00 771.00 499.00 1.00 re f 0 0 0 rg
+BT /F2 9 Tf 1 0 0 1 48.00 760.00 Tm (BILL TO) Tj ET
+BT /F2 9 Tf 1 0 0 1 300.00 760.00 Tm (INVOICE DETAILS) Tj ET
+BT /F1 9 Tf 1 0 0 1 48.00 748.00 Tm (test) Tj ET
+BT /F1 8.5 Tf 1 0 0 1 300.00 748.00 Tm (Invoice No:   ord-24006) Tj ET
+0.420 0.420 0.420 rg
+BT /F1 8 Tf 1 0 0 1 48.00 736.00 Tm (test1234@gmail.com) Tj ET
+0 0 0 rg
+BT /F1 8.5 Tf 1 0 0 1 300.00 736.00 Tm (Date:   02 Aug 2026, 09:44 AM) Tj ET
+0.420 0.420 0.420 rg
+BT /F1 8 Tf 1 0 0 1 48.00 724.00 Tm (1234567890) Tj ET
+0 0 0 rg
+BT /F1 8.5 Tf 1 0 0 1 300.00 724.00 Tm (Status:   Pending) Tj ET
+BT /F1 8.5 Tf 1 0 0 1 300.00 712.00 Tm (Payment:   Cash on Delivery / Awaiting) Tj ET
+BT /F1 8.5 Tf 1 0 0 1 300.00 700.00 Tm (Reference:   —) Tj ET
+BT /F2 9 Tf 1 0 0 1 48.00 678.00 Tm (SHIP TO) Tj ET
+BT /F1 8 Tf 1 0 0 1 48.00 664.00 Tm (sadasda) Tj ET
+BT /F1 8 Tf 1 0 0 1 48.00 652.50 Tm (surat, dsdcs) Tj ET
+BT /F1 8 Tf 1 0 0 1 48.00 641.00 Tm (scfsdf India) Tj ET
+0.051 0.161 0.122 rg 48.00 616.50 499.00 16.00 re f 1 1 1 rg
+BT /F2 8.5 Tf 1 0 0 1 54.00 625.50 Tm (ITEM / DESCRIPTION) Tj ET
+BT /F2 8.5 Tf 1 0 0 1 354.52 625.50 Tm (QTY) Tj ET
+BT /F2 8.5 Tf 1 0 0 1 427.17 625.50 Tm (UNIT) Tj ET
+BT /F2 8.5 Tf 1 0 0 1 519.60 625.50 Tm (TOTAL) Tj ET
+0 0 0 rg
+BT /F2 9 Tf 1 0 0 1 54.00 605.50 Tm (2mm Ring) Tj ET
+0.420 0.420 0.420 rg
+BT /F1 7.5 Tf 1 0 0 1 54.00 594.00 Tm (Variant: Yellow Gold / Size 4 / Princess Diamond / Gold / Band/Claw White / White Gold /) Tj ET
+0 0 0 rg
+0.420 0.420 0.420 rg
+BT /F1 7.5 Tf 1 0 0 1 54.00 582.50 Tm (4-5 Weeks Delivery) Tj ET
+0 0 0 rg
+BT /F1 8.5 Tf 1 0 0 1 367.27 595.50 Tm (1) Tj ET
+BT /F1 8.5 Tf 1 0 0 1 416.28 595.50 Tm (£550.00) Tj ET
+BT /F2 8.5 Tf 1 0 0 1 516.28 595.50 Tm (£550.00) Tj ET
+0.900 0.880 0.830 rg 54.00 566.00 493.00 0.50 re f 0 0 0 rg
+0.420 0.420 0.420 rg
+BT /F1 8.5 Tf 1 0 0 1 430.00 556.00 Tm (Items) Tj ET
+0 0 0 rg
+BT /F1 8.5 Tf 1 0 0 1 542.27 556.00 Tm (1) Tj ET
+0.420 0.420 0.420 rg
+BT /F1 8.5 Tf 1 0 0 1 430.00 544.00 Tm (Subtotal) Tj ET
+0 0 0 rg
+BT /F1 8.5 Tf 1 0 0 1 516.28 544.00 Tm (£550.00) Tj ET
+0.420 0.420 0.420 rg
+BT /F1 8.5 Tf 1 0 0 1 430.00 532.00 Tm (Discount) Tj ET
+0 0 0 rg
+BT /F1 8.5 Tf 1 0 0 1 522.90 532.00 Tm (-£0.00) Tj ET
+0.420 0.420 0.420 rg
+BT /F1 8.5 Tf 1 0 0 1 430.00 520.00 Tm (Shipping) Tj ET
+0 0 0 rg
+BT /F1 8.5 Tf 1 0 0 1 529.52 520.00 Tm (Free) Tj ET
+0.051 0.161 0.122 rg 424.00 505.00 129.00 0.80 re f 0 0 0 rg
+BT /F2 10 Tf 1 0 0 1 430.00 502.00 Tm (TOTAL) Tj ET
+BT /F2 11 Tf 1 0 0 1 507.25 502.00 Tm (£550.00) Tj ET
+BT /F2 9 Tf 1 0 0 1 48.00 486.00 Tm (NOTES) Tj ET
+0.420 0.420 0.420 rg
+BT /F1 8 Tf 1 0 0 1 48.00 472.00 Tm (Cash on delivery order placed.) Tj ET
+0 0 0 rg
+0.900 0.880 0.830 rg 48.00 46.00 499.00 0.50 re f 0 0 0 rg
+0.420 0.420 0.420 rg
+BT /F1 7.5 Tf 1 0 0 1 48.00 40.00 Tm (Thank you for your purchase — Azuronn) Tj ET
+0 0 0 rg
+0.420 0.420 0.420 rg
+BT /F1 7.5 Tf 1 0 0 1 508.64 40.00 Tm (Page 1 of 1) Tj ET
+0 0 0 rg
+
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000117 00000 n 
+0000000214 00000 n 
+0000000316 00000 n 
+0000000392 00000 n 
+0000000528 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R /Info 5 0 R >>
+startxref
+3852
+%%EOF

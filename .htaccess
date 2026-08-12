@@ -1,0 +1,154 @@
+# ─────────────────────────────────────────────
+#  MONSTA – Apache Security Configuration
+# ─────────────────────────────────────────────
+
+# Disable directory listing
+Options -Indexes
+
+# Block direct browser access to the includes folder
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Legacy ring collection routes
+    RewriteRule ^engagement-rings/shape/([a-zA-Z0-9-]+)/?$ shop/index.php?type=Ring&ring_category=engagement&shape=$1 [L,QSA]
+    RewriteRule ^engagement-rings/style/([a-zA-Z0-9-]+)/?$ shop/index.php?type=Ring&ring_category=engagement&style=$1 [L,QSA]
+
+    # Wedding ring section routes
+    RewriteRule ^wedding-rings/mens/?$ shop/index.php?type=Ring&ring_category=wedding&gender=mens [L,QSA]
+    RewriteRule ^wedding-rings/womens/?$ shop/index.php?type=Ring&ring_category=wedding&gender=womens [L,QSA]
+    RewriteRule ^wedding-rings/?$ shop/index.php?type=Ring&ring_category=wedding [L,QSA]
+    RewriteRule ^wedding-rings/style/([a-zA-Z0-9-]+)/?$ shop/index.php?type=Ring&ring_category=wedding&style=$1 [L,QSA]
+
+    # Engagement ring section route
+    RewriteRule ^engagement-rings/?$ shop/index.php?type=Ring&ring_category=engagement [L,QSA]
+
+    # Deny access to includes/ directly
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^data/ - [F,L]
+</IfModule>
+
+# Alternatively, deny via FilesMatch for .php in includes/
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Force UTF-8
+AddDefaultCharset UTF-8
+
+# Security Headers (mod_headers)
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self';"
+</IfModule>
+
+# Prevent access to sensitive files
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|sql|json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Disable server signature
+ServerSignature Off
+
+# ─────────────────────────────────────────────────────────────
+#  UPLOAD LIMITS
+#  Admin background media allows video up to 30MB, so PHP must accept at least
+#  that or it discards the file before any app code runs. These php_value lines
+#  only apply when PHP runs as an Apache module; on CGI/FastCGI/PHP-FPM hosts
+#  the identical settings in .user.ini take effect instead. The IfModule guards
+#  keep this a no-op (never a 500) when mod_php isn't loaded.
+#  post_max_size covers the entire request body — file plus all other fields —
+#  so it stays above upload_max_filesize.
+# ─────────────────────────────────────────────────────────────
+<IfModule mod_php.c>
+    php_value upload_max_filesize 32M
+    php_value post_max_size 40M
+    php_value memory_limit 128M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 32M
+    php_value post_max_size 40M
+    php_value memory_limit 128M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 32M
+    php_value post_max_size 40M
+    php_value memory_limit 128M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>
+
+# Apache's own request-body ceiling, independent of PHP. Left generous enough
+# for a 40M post body; without this some configs reject the request with a 413
+# before PHP ever sees it.
+LimitRequestBody 47185920
+
+# ─────────────────────────────────────────────────────────────
+#  PERFORMANCE (output-neutral: same bytes, faster delivery)
+#  All blocks are guarded by IfModule directives so they no-op gracefully
+#  if a module is missing — never a 500. Nothing here changes any
+#  route, markup, data, or design; it only affects transport/timing.
+# ─────────────────────────────────────────────────────────────
+
+# Gzip / Brotli text-based responses (CSS, JS, HTML, JSON, SVG, fonts).
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/x-javascript application/json application/xml image/svg+xml font/ttf font/otf font/woff font/woff2 application/font-woff application/font-woff2 application/vnd.ms-fontobject
+</IfModule>
+
+# Browser caching. Static assets carry a ?v=<filemtime> version tag (see
+# asset_url()), so a far-future max-age is safe: editing a file changes its
+# ?v= and the browser fetches the new URL automatically. HTML is left to
+# revalidate so content edits appear immediately.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "by access plus 0 seconds"
+  ExpiresByType text/html "by access plus 0 seconds"
+  ExpiresByType text/css "by access plus 1 year"
+  ExpiresByType text/javascript "by access plus 1 year"
+  ExpiresByType application/javascript "by access plus 1 year"
+  ExpiresByType application/x-javascript "by access plus 1 year"
+  ExpiresByType image/jpeg "by access plus 1 year"
+  ExpiresByType image/png "by access plus 1 year"
+  ExpiresByType image/gif "by access plus 1 year"
+  ExpiresByType image/webp "by access plus 1 year"
+  ExpiresByType image/svg+xml "by access plus 1 year"
+  ExpiresByType image/x-icon "by access plus 1 year"
+  ExpiresByType image/vnd.microsoft.icon "by access plus 1 year"
+  ExpiresByType font/ttf "by access plus 1 year"
+  ExpiresByType font/otf "by access plus 1 year"
+  ExpiresByType font/woff "by access plus 1 year"
+  ExpiresByType font/woff2 "by access plus 1 year"
+  ExpiresByType application/font-woff "by access plus 1 year"
+  ExpiresByType application/font-woff2 "by access plus 1 year"
+  ExpiresByType application/vnd.ms-fontobject "by access plus 1 year"
+</IfModule>
+
+# Cache-Control to match the Expires rules above (some hosts ignore Expires).
+<IfModule mod_headers.c>
+  # Versioned CSS/JS (asset_url() appends ?v=<filemtime>) and any self-hosted
+  # fonts: cache hard with immutable. A changed file gets a NEW ?v URL inside
+  # the always-fresh HTML (HTML is no-cache below), so immutable can never
+  # serve stale code.
+  <FilesMatch "\.(css|js|woff2?|ttf|otf|eot)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # Images: cache for a year so repeat navigation is instant, but WITHOUT
+  # immutable so a normal reload (F5) still revalidates via ETag. That means an
+  # in-place image or logo change (referenced without a ?v= tag) shows on
+  # refresh without needing a hard reset — correctness preserved.
+  <FilesMatch "\.(svg|ico|jpe?g|png|gif|webp|avif)$">
+    Header set Cache-Control "public, max-age=31536000"
+  </FilesMatch>
+  <FilesMatch "\.html?$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>

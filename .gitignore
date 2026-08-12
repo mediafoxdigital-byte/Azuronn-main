@@ -1,0 +1,17 @@
+# ── Secrets — NEVER commit these ─────────────────────────────────────────────
+data/runtime-config.php
+data/*.lock
+data/*.json
+
+# ── Temp / scratch files ──────────────────────────────────────────────────────
+.tmp_*.php
+.tmp_*.html
+
+# ── OS / editor noise ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── Local Supabase backups (per-environment) ───────────────────────────────────
+.supabase-backups/
