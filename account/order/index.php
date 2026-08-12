@@ -87,9 +87,9 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
   .order-detail-page .store-flash { background: var(--iv-tint); color: var(--iv-ink); border: 1px solid var(--iv-line); border-radius: 4px; box-shadow: none; padding: 11px 20px; text-align: center; font-size: .85rem; margin: 24px 0 0; }
 
   /* ---- Structured document layout ------------------------------------
-     Meta strip runs full width, then a two-column body (lines | totals),
-     then a full-width footer row for address + operational detail.
-     Every block is a bordered card of equal rhythm so nothing floats. */
+     The main column owns the item and detail cards; totals/actions form an
+     independent side column. Each column grows naturally, so a tall action
+     form can never create a large blank area below a short item list. */
   .order-detail-page .order-detail-layout { display: block; margin-top: 32px; }
 
   .order-detail-page .invoice-doc-section { margin: 0 0 22px; }
@@ -97,8 +97,10 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
     display: grid; grid-template-columns: minmax(0, 1fr) 340px;
     gap: 22px; align-items: start; margin: 0 0 22px;
   }
+  .order-detail-page .invoice-main-stack { display: grid; gap: 22px; min-width: 0; align-content: start; }
   .order-detail-page .order-side-stack { display: grid; gap: 22px; align-content: start; }
-  .order-detail-page .invoice-doc-footer { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: stretch; }
+  .order-detail-page .invoice-doc-footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: stretch; }
+  .order-detail-page .invoice-notes-card { grid-column: 1 / -1; }
 
   /* Panels -> uniform bordered cards */
   .order-detail-page .account-panel {
@@ -188,6 +190,10 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
 
   @media (max-width: 1080px) {
     .order-detail-page .invoice-doc-body { grid-template-columns: 1fr; }
+    .order-detail-page .invoice-main-stack { display: contents; }
+    .order-detail-page .invoice-lines-panel { order: 1; }
+    .order-detail-page .order-side-stack { order: 2; }
+    .order-detail-page .invoice-doc-footer { order: 3; }
     .order-detail-page .invoice-doc-footer { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .order-detail-page .invoice-notes-card { grid-column: 1 / -1; }
   }
@@ -313,39 +319,77 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
       </div>
 
       <div class="invoice-doc-body">
-        <div class="account-panel invoice-lines-panel">
-          <div class="invoice-section-head">
-            <div>
-              <span class="auth-kicker">Items</span>
-              <h2>Order Lines</h2>
+        <div class="invoice-main-stack">
+          <div class="account-panel invoice-lines-panel">
+            <div class="invoice-section-head">
+              <div>
+                <span class="auth-kicker">Items</span>
+                <h2>Order Lines</h2>
+              </div>
+              <div class="invoice-head-meta">
+                <span class="status-pill"><?= h((string) ($presented['item_count'] ?? 0)) ?> Item<?= ((int) ($presented['item_count'] ?? 0)) === 1 ? '' : 's' ?></span>
+              </div>
             </div>
-            <div class="invoice-head-meta">
-              <span class="status-pill"><?= h((string) ($presented['item_count'] ?? 0)) ?> Item<?= ((int) ($presented['item_count'] ?? 0)) === 1 ? '' : 's' ?></span>
-            </div>
+
+            <?php if (($presented['items'] ?? []) === []): ?>
+              <div class="account-empty account-empty-compact invoice-empty-state">
+                <h3>Legacy order record</h3>
+                <p>This order was stored before detailed line items were available. Payment and status information are preserved here.</p>
+              </div>
+            <?php else: ?>
+              <div class="invoice-line-list">
+                <?php foreach ($presented['items'] as $line): ?>
+                  <article class="invoice-line-card">
+                    <div class="invoice-line-media">
+                      <img src="<?= h((string) ($line['image'] ?? '')) ?>" alt="<?= h((string) ($line['product_name'] ?? 'Ordered item')) ?>">
+                    </div>
+                    <div class="invoice-line-copy">
+                      <strong><?= h((string) ($line['product_name'] ?? 'Item')) ?></strong>
+                      <span><?= h(line_variant_summary($line)) ?></span>
+                      <small>Unit <?= h((string) ($line['invoice_unit_price'] ?? $line['price'] ?? money_format(0))) ?> · Qty <?= h((string) ($line['quantity'] ?? 1)) ?></small>
+                    </div>
+                    <strong class="invoice-line-total"><?= h((string) ($line['invoice_line_total'] ?? $line['line_total'] ?? money_format(0))) ?></strong>
+                  </article>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
           </div>
 
-          <?php if (($presented['items'] ?? []) === []): ?>
-            <div class="account-empty account-empty-compact invoice-empty-state">
-              <h3>Legacy order record</h3>
-              <p>This order was stored before detailed line items were available. Payment and status information are preserved here.</p>
+          <div class="invoice-doc-footer">
+            <div class="account-panel invoice-address-card">
+              <span class="auth-kicker">Delivery Destination</span>
+              <h2>Shipping Address</h2>
+              <?php if (($presented['address_lines'] ?? []) === []): ?>
+                <p class="invoice-muted-copy">No shipping address was stored on this order record.</p>
+              <?php else: ?>
+                <div class="invoice-address-block">
+                  <strong><?= h((string) ($order['customer_name'] ?? ($customer['name'] ?? ''))) ?></strong>
+                  <?php foreach ($presented['address_lines'] as $line): ?>
+                    <p><?= h($line) ?></p>
+                  <?php endforeach; ?>
+                  <p><?= h((string) (($order['customer_phone'] ?? '') !== '' ? $order['customer_phone'] : ($customer['phone'] ?? ''))) ?></p>
+                </div>
+              <?php endif; ?>
             </div>
-          <?php else: ?>
-            <div class="invoice-line-list">
-              <?php foreach ($presented['items'] as $line): ?>
-                <article class="invoice-line-card">
-                  <div class="invoice-line-media">
-                    <img src="<?= h((string) ($line['image'] ?? '')) ?>" alt="<?= h((string) ($line['product_name'] ?? 'Ordered item')) ?>">
-                  </div>
-                  <div class="invoice-line-copy">
-                    <strong><?= h((string) ($line['product_name'] ?? 'Item')) ?></strong>
-                    <span><?= h(line_variant_summary($line)) ?></span>
-                    <small>Unit <?= h((string) ($line['invoice_unit_price'] ?? $line['price'] ?? money_format(0))) ?> · Qty <?= h((string) ($line['quantity'] ?? 1)) ?></small>
-                  </div>
-                  <strong class="invoice-line-total"><?= h((string) ($line['invoice_line_total'] ?? $line['line_total'] ?? money_format(0))) ?></strong>
-                </article>
-              <?php endforeach; ?>
+
+            <div class="account-panel invoice-meta-card">
+              <span class="auth-kicker">Status Snapshot</span>
+              <h2>Operational Detail</h2>
+              <div class="account-details profile-detail-list">
+                <div><span>Order Status</span><strong><?= h((string) ($presented['status_label'] ?? '')) ?></strong></div>
+                <div><span>Tracking ID</span><strong><?= h((string) (($presented['tracking_id'] ?? '') !== '' ? $presented['tracking_id'] : 'Not issued')) ?></strong></div>
+                <div><span>Payment Status</span><strong><?= h((string) ($presented['payment_status_label'] ?? '')) ?></strong></div>
+                <div><span>Payment Method</span><strong><?= h((string) ($presented['payment_method_label'] ?? '')) ?></strong></div>
+                <div><span>Reference</span><strong><?= h((string) (($order['payment_reference'] ?? '') !== '' ? $order['payment_reference'] : 'Not issued')) ?></strong></div>
+              </div>
             </div>
-          <?php endif; ?>
+
+            <div class="account-panel invoice-notes-card">
+              <span class="auth-kicker">Notes</span>
+              <h2>Order Notes</h2>
+              <p class="invoice-muted-copy"><?= h((string) (($order['notes'] ?? '') !== '' ? $order['notes'] : 'No additional notes were stored with this order.')) ?></p>
+            </div>
+          </div>
         </div>
 
         <aside class="order-side-stack">
@@ -402,41 +446,6 @@ require_once dirname(__DIR__, 2) . '/includes/header.php';
         </aside>
       </div>
 
-      <div class="invoice-doc-footer">
-        <div class="account-panel invoice-address-card">
-          <span class="auth-kicker">Delivery Destination</span>
-          <h2>Shipping Address</h2>
-          <?php if (($presented['address_lines'] ?? []) === []): ?>
-            <p class="invoice-muted-copy">No shipping address was stored on this order record.</p>
-          <?php else: ?>
-            <div class="invoice-address-block">
-              <strong><?= h((string) ($order['customer_name'] ?? ($customer['name'] ?? ''))) ?></strong>
-              <?php foreach ($presented['address_lines'] as $line): ?>
-                <p><?= h($line) ?></p>
-              <?php endforeach; ?>
-              <p><?= h((string) (($order['customer_phone'] ?? '') !== '' ? $order['customer_phone'] : ($customer['phone'] ?? ''))) ?></p>
-            </div>
-          <?php endif; ?>
-        </div>
-
-        <div class="account-panel invoice-meta-card">
-          <span class="auth-kicker">Status Snapshot</span>
-          <h2>Operational Detail</h2>
-          <div class="account-details profile-detail-list">
-            <div><span>Order Status</span><strong><?= h((string) ($presented['status_label'] ?? '')) ?></strong></div>
-            <div><span>Tracking ID</span><strong><?= h((string) (($presented['tracking_id'] ?? '') !== '' ? $presented['tracking_id'] : 'Not issued')) ?></strong></div>
-            <div><span>Payment Status</span><strong><?= h((string) ($presented['payment_status_label'] ?? '')) ?></strong></div>
-            <div><span>Payment Method</span><strong><?= h((string) ($presented['payment_method_label'] ?? '')) ?></strong></div>
-            <div><span>Reference</span><strong><?= h((string) (($order['payment_reference'] ?? '') !== '' ? $order['payment_reference'] : 'Not issued')) ?></strong></div>
-          </div>
-        </div>
-
-        <div class="account-panel invoice-notes-card">
-          <span class="auth-kicker">Notes</span>
-          <h2>Order Notes</h2>
-          <p class="invoice-muted-copy"><?= h((string) (($order['notes'] ?? '') !== '' ? $order['notes'] : 'No additional notes were stored with this order.')) ?></p>
-        </div>
-      </div>
     </div>
   </div>
 </section>
