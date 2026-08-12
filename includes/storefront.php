@@ -1769,7 +1769,12 @@ function line_variant_parts(array $line): array
     }
 
     $color = clean_string((string) ($line['color'] ?? ''), 80);
-    if ($color !== '') {
+    $explicitMetal = clean_string((string) ($line['metal_label'] ?? $line['metal'] ?? ''), 60);
+    $explicitBandClawMetal = clean_string((string) ($line['band_claw_metal_label'] ?? $line['band_claw_metal'] ?? ''), 80);
+    // `color` is a legacy/generic fallback. Ring orders store their real metal
+    // selections separately, so showing both can produce a false value such as
+    // "Yellow Gold" alongside the actual "Rose Gold" selection.
+    if ($color !== '' && $explicitMetal === '' && $explicitBandClawMetal === '') {
         $parts[] = $color;
     }
 
@@ -1783,12 +1788,12 @@ function line_variant_parts(array $line): array
         $parts[] = $diamondShape . ' Diamond';
     }
 
-    $metal = clean_string((string) ($line['metal_label'] ?? $line['metal'] ?? ''), 60);
+    $metal = $explicitMetal;
     if ($metal !== '') {
         $parts[] = $metal;
     }
 
-    $bandClawMetal = clean_string((string) ($line['band_claw_metal_label'] ?? $line['band_claw_metal'] ?? ''), 80);
+    $bandClawMetal = $explicitBandClawMetal;
     if ($bandClawMetal !== '') {
         $parts[] = 'Band/Claw ' . $bandClawMetal;
     }
