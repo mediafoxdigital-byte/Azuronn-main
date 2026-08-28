@@ -117,7 +117,7 @@ function supabase_http_status(array $headers): int
     return 0;
 }
 
-function supabase_http_request(string $method, string $path, array $query = [], ?array $payload = null, bool $write = false, bool $returnRepresentation = false, bool $mergeDuplicates = false): array
+function supabase_http_request(string $method, string $path, array $query = [], ?array $payload = null, bool $write = false, bool $returnRepresentation = false, bool $mergeDuplicates = false, int $timeoutSeconds = 20): array
 {
     if (!supabase_enabled()) {
         return ['ok' => false, 'status' => 0, 'error' => 'Supabase is not configured.'];
@@ -132,7 +132,7 @@ function supabase_http_request(string $method, string $path, array $query = [], 
         'http' => [
             'method' => strtoupper($method),
             'ignore_errors' => true,
-            'timeout' => 20,
+            'timeout' => max(1, $timeoutSeconds),
             'header' => implode("\r\n", supabase_rest_headers($write, $returnRepresentation, $mergeDuplicates)),
         ],
         'ssl' => [
@@ -201,7 +201,7 @@ function supabase_select_first(string $table, array $filters = [], string $colum
     return $rows[0] ?? null;
 }
 
-function supabase_upsert_rows(string $table, array $rows, string $onConflict = ''): bool
+function supabase_upsert_rows(string $table, array $rows, string $onConflict = '', int $timeoutSeconds = 20): bool
 {
     if ($rows === []) {
         return true;
@@ -212,7 +212,7 @@ function supabase_upsert_rows(string $table, array $rows, string $onConflict = '
         $query['on_conflict'] = $onConflict;
     }
 
-    $result = supabase_http_request('POST', '/rest/v1/' . rawurlencode($table), $query, $rows, true, false, $onConflict !== '');
+    $result = supabase_http_request('POST', '/rest/v1/' . rawurlencode($table), $query, $rows, true, false, $onConflict !== '', $timeoutSeconds);
     return (bool) ($result['ok'] ?? false);
 }
 
@@ -250,24 +250,43 @@ function supabase_write_state(string $key, array $payload): bool
     ]], 'key');
 }
 
-function supabase_register_media_asset(array $asset): bool
+function supabase_register_media_assets(array $assets): bool
 {
-    $publicUrl = trim((string) ($asset['public_url'] ?? ''));
-    if ($publicUrl === '') {
+    $rows = [];
+    $timestamp = gmdate('c');
+    foreach ($assets as $asset) {
+        if (!is_array($asset)) {
+            continue;
+        }
+        $publicUrl = trim((string) ($asset['public_url'] ?? ''));
+        if ($publicUrl === '') {
+            continue;
+        }
+        $rows[] = [
+            'public_url' => $publicUrl,
+            'file_path' => trim((string) ($asset['file_path'] ?? '')),
+            'file_name' => trim((string) ($asset['file_name'] ?? '')),
+            'mime_type' => trim((string) ($asset['mime_type'] ?? '')),
+            'media_type' => trim((string) ($asset['media_type'] ?? 'file')),
+            'file_size' => max(0, (int) ($asset['file_size'] ?? 0)),
+            'source' => trim((string) ($asset['source'] ?? 'hosting')),
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ];
+    }
+
+    if ($rows === []) {
         return false;
     }
 
-    return supabase_upsert_rows('media_assets', [[
-        'public_url' => $publicUrl,
-        'file_path' => trim((string) ($asset['file_path'] ?? '')),
-        'file_name' => trim((string) ($asset['file_name'] ?? '')),
-        'mime_type' => trim((string) ($asset['mime_type'] ?? '')),
-        'media_type' => trim((string) ($asset['media_type'] ?? 'file')),
-        'file_size' => max(0, (int) ($asset['file_size'] ?? 0)),
-        'source' => trim((string) ($asset['source'] ?? 'hosting')),
-        'created_at' => gmdate('c'),
-        'updated_at' => gmdate('c'),
-    ]], 'public_url');
+    // Media metadata is supplementary: the saved content already references
+    // the uploaded file. Keep this best-effort sync from delaying an admin save.
+    return supabase_upsert_rows('media_assets', $rows, 'public_url', 5);
+}
+
+function supabase_register_media_asset(array $asset): bool
+{
+    return supabase_register_media_assets([$asset]);
 }
 
 // ── Row normalization for private tables ────────────────────────────────────

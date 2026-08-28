@@ -139,7 +139,20 @@ function admin_url(string $view, array $params = []): string
 
 function admin_redirect(string $view, array $params = []): void
 {
-    redirect(admin_url($view, $params));
+    $url = admin_url($view, $params);
+    if (admin_has_queued_media_assets() && function_exists('fastcgi_finish_request')) {
+        header('Location: ' . $url);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        ignore_user_abort(true);
+        fastcgi_finish_request();
+        admin_flush_queued_media_assets();
+        exit;
+    }
+
+    admin_flush_queued_media_assets();
+    redirect($url);
 }
 
 function admin_html(string $value): string
@@ -535,6 +548,39 @@ function admin_upload_dir_web(): string
     return UPLOADS_PUBLIC_BASE_URL;
 }
 
+function admin_queue_media_asset(array $asset): void
+{
+    if (!supabase_enabled()) {
+        return;
+    }
+    $publicUrl = trim((string) ($asset['public_url'] ?? ''));
+    if ($publicUrl === '') {
+        return;
+    }
+
+    $queue = $GLOBALS['azuronn_admin_media_asset_queue'] ?? [];
+    if (!is_array($queue)) {
+        $queue = [];
+    }
+    $queue[$publicUrl] = $asset;
+    $GLOBALS['azuronn_admin_media_asset_queue'] = $queue;
+}
+
+function admin_has_queued_media_assets(): bool
+{
+    return !empty($GLOBALS['azuronn_admin_media_asset_queue']);
+}
+
+function admin_flush_queued_media_assets(): void
+{
+    $queue = $GLOBALS['azuronn_admin_media_asset_queue'] ?? [];
+    $GLOBALS['azuronn_admin_media_asset_queue'] = [];
+    if (!is_array($queue) || $queue === [] || !supabase_enabled()) {
+        return;
+    }
+    supabase_register_media_assets(array_values($queue));
+}
+
 function admin_allowed_media_types(): array
 {
     return [
@@ -677,7 +723,7 @@ function admin_handle_image_upload(string $fieldName, string $current = ''): str
 
     $publicUrl = admin_upload_dir_web() . '/' . $name;
     if (supabase_enabled()) {
-        supabase_register_media_asset([
+        admin_queue_media_asset([
             'public_url' => $publicUrl,
             'file_path' => $destination,
             'file_name' => $name,

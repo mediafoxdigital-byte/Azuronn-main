@@ -120,7 +120,8 @@ function resetMetalPriceAdjustmentButtons(scope = document) {
 
 function adminMediaPreviewType(source, file = null) {
   if (file && typeof file.type === 'string' && file.type.startsWith('video/')) return 'video';
-  const cleanSource = String(source || '').split('?')[0].toLowerCase();
+  if (file && typeof file.type === 'string' && file.type.startsWith('image/')) return 'image';
+  const cleanSource = String((file && file.name) || source || '').split('?')[0].toLowerCase();
   return /\.(mp4|webm|ogv|mov|m4v)$/.test(cleanSource) ? 'video' : 'image';
 }
 
@@ -164,11 +165,13 @@ function syncShapeMediaSlot(slot, selectedFile = null) {
         video.muted = true;
         video.playsInline = true;
         video.preload = 'metadata';
+        video.controls = true;
         preview.appendChild(video);
       } else {
         const image = document.createElement('img');
         image.src = source;
         image.alt = '';
+        image.decoding = 'async';
         preview.appendChild(image);
       }
     } else {
@@ -1149,7 +1152,7 @@ document.addEventListener('change', (event) => {
     syncCategoryToProductType(event.target.closest('form') || document);
   }
 
-  if (event.target.closest('#attribute-profile form, #attribute-editor form')) {
+  if (!event.target.matches('input[type="file"]') && event.target.closest('#attribute-profile form, #attribute-editor form')) {
     scheduleAttributeDraftSave(event.target.closest('form'));
   }
 });
