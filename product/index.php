@@ -346,7 +346,7 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
           <?= $renderProductMedia($productPrimaryMedia, (string) ($product['name'] ?? 'Product'), 'product-gallery-media', ['data-product-main-media' => 'true'], true) ?>
           <span class="pp-stage-rotate" aria-hidden="true"><i class="fas fa-cube"></i></span>
         </div>
-        <div class="pp-thumbs" data-product-thumbs <?= count($productGallery) > 1 ? '' : 'hidden' ?>>
+        <div class="pp-thumbs" data-product-thumbs style="--pp-thumb-columns: <?= max(4, min(6, count($productGallery))) ?>;" <?= count($productGallery) > 1 ? '' : 'hidden' ?>>
           <?php foreach ($productGallery as $index => $image): ?>
             <button type="button" class="product-thumb <?= $index === 0 ? 'is-active' : '' ?>" data-product-thumb data-media-src="<?= h($image) ?>" data-media-type="<?= h(media_asset_type($image)) ?>" aria-label="<?= h('View media ' . ($index + 1)) ?>">
               <?= $renderProductMedia($image, (string) ($product['name'] ?? 'Product'), 'product-thumb-media', [], false) ?>
@@ -929,6 +929,7 @@ document.addEventListener('DOMContentLoaded', () => {
         galleryStage.replaceChildren(stageMedia);
 
         galleryThumbRow.replaceChildren();
+        galleryThumbRow.style.setProperty('--pp-thumb-columns', String(Math.max(4, Math.min(6, nextGallery.length))));
         galleryThumbRow.hidden = nextGallery.length <= 1;
         nextGallery.forEach((src, index) => {
             const thumb = document.createElement('button');

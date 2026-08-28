@@ -155,7 +155,7 @@ body.product-page .pp-stage-rotate {
 
 body.product-page .pp-thumbs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(var(--pp-thumb-columns, 4), minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -916,7 +916,7 @@ body.product-page .pp-related .sec-hdr-premium { margin-bottom: 34px; }
 
   body.product-page .pp-summary { position: static; box-shadow: none; }
 
-  body.product-page .pp-thumbs { grid-template-columns: repeat(5, 1fr); }
+  body.product-page .pp-thumbs { grid-template-columns: repeat(var(--pp-thumb-columns, 4), minmax(0, 1fr)); }
 }
 
 @media (max-width: 560px) {
