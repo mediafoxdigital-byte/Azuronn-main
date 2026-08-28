@@ -109,7 +109,7 @@ function admin_requestable_actions(): array
 {
     return [
         'save-hero', 'save-celebs', 'save-settings', 'save-categories', 'save-attribute-profile',
-        'save-product-attributes', 'save-diamonds', 'create-diamond', 'update-diamond', 'delete-diamond',
+        'adjust-metal-prices', 'save-product-attributes', 'save-diamonds', 'create-diamond', 'update-diamond', 'delete-diamond',
         'save-navigation', 'save-footer', 'create-product', 'update-product', 'delete-product', 'save-inventory',
         'save-catalog-assignments', 'create-news', 'update-news', 'delete-news', 'create-shape',
         'update-shape', 'delete-shape', 'ban-customer', 'unban-customer', 'delete-customer',
@@ -485,6 +485,34 @@ function admin_form_open(string $view, string $action, bool $multipart = false):
 function admin_form_close(): void
 {
     echo '</form>';
+}
+
+function admin_metal_price_adjustment_controls(string|int $index): void
+{
+    $inputId = 'metal-price-percentage-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', (string) $index);
+    ?>
+    <div class="admin-metal-price-adjustment" data-metal-price-adjustment>
+      <div class="admin-metal-price-adjustment-copy">
+        <strong>Adjust all product prices</strong>
+        <small>Uses each matching product's current price. The percentage clears after one adjustment.</small>
+      </div>
+      <label class="admin-metal-percentage-field" for="<?= admin_html($inputId) ?>">
+        <span>Percentage</span>
+        <span class="admin-metal-percentage-input">
+          <input id="<?= admin_html($inputId) ?>" type="number" min="0.01" max="100" step="0.01" inputmode="decimal" placeholder="10" autocomplete="off" data-metal-price-percentage>
+          <b aria-hidden="true">%</b>
+        </span>
+      </label>
+      <div class="admin-metal-price-actions">
+        <button class="admin-metal-price-btn increase" type="button" data-metal-price-adjustment-button data-direction="increase">
+          <i class="fas fa-arrow-up" aria-hidden="true"></i><span>Increase by</span>
+        </button>
+        <button class="admin-metal-price-btn decrease" type="button" data-metal-price-adjustment-button data-direction="decrease">
+          <i class="fas fa-arrow-down" aria-hidden="true"></i><span>Decrease by</span>
+        </button>
+      </div>
+    </div>
+    <?php
 }
 
 function admin_array_find_index(array $items, string $id): ?int
@@ -924,6 +952,196 @@ function admin_listing_face_from_metals(array $metalVariations): array
     $face['description'] = clean_multiline((string) ($best['description'] ?? ''), 1000);
 
     return $face;
+}
+
+function admin_metal_price_adjustment_label(float $percentage): string
+{
+    return rtrim(rtrim(number_format($percentage, 2, '.', ''), '0'), '.');
+}
+
+function admin_metal_price_adjustment_message(array $result): string
+{
+    if (empty($result['ok'])) {
+        return clean_string((string) ($result['message'] ?? 'The metal prices could not be adjusted.'), 240);
+    }
+
+    $verb = (string) ($result['direction'] ?? '') === 'decrease' ? 'Decreased' : 'Increased';
+    $percentage = admin_metal_price_adjustment_label((float) ($result['percentage'] ?? 0));
+    $metal = clean_string((string) ($result['metal'] ?? ''), 120);
+    $category = clean_string((string) ($result['attribute_type'] ?? ''), 80);
+    $updatedProducts = (int) ($result['updated_products'] ?? 0);
+    $updatedPrices = (int) ($result['updated_prices'] ?? 0);
+    $skipped = (int) ($result['unpriced_matches'] ?? 0);
+
+    $message = $verb . ' ' . $metal . ' prices in ' . $category . ' by ' . $percentage . '%. '
+        . 'Updated ' . $updatedPrices . ' metal price' . ($updatedPrices === 1 ? '' : 's')
+        . ' across ' . $updatedProducts . ' product' . ($updatedProducts === 1 ? '' : 's') . '.';
+    if ($skipped > 0) {
+        $message .= ' Skipped ' . $skipped . ' matching variation' . ($skipped === 1 ? '' : 's') . ' without a price.';
+    }
+
+    return $message;
+}
+
+/**
+ * Apply one compounding percentage adjustment to every matching metal
+ * variation in one category. The caller owns persistence so this same function
+ * can power employee-request previews without writing anything.
+ */
+function admin_adjust_metal_prices(
+    array &$content,
+    string $attributeType,
+    string $metal,
+    string $direction,
+    float $percentage
+): array {
+    $attributeType = clean_string($attributeType, 80);
+    $metal = clean_string($metal, 120);
+    $direction = strtolower(clean_string($direction, 20));
+    $percentage = round($percentage, 2);
+
+    if ($attributeType === '' || $metal === '') {
+        return ['ok' => false, 'message' => 'Choose a saved category metal before changing prices.'];
+    }
+    if (!in_array($direction, ['increase', 'decrease'], true)) {
+        return ['ok' => false, 'message' => 'Choose whether to increase or decrease the prices.'];
+    }
+    if ($percentage <= 0 || $percentage > 100) {
+        return ['ok' => false, 'message' => 'Enter a percentage greater than 0 and no more than 100.'];
+    }
+
+    $profile = is_array($content['catalog_meta']['attribute_profiles'][$attributeType] ?? null)
+        ? $content['catalog_meta']['attribute_profiles'][$attributeType]
+        : [];
+    $savedMetal = '';
+    foreach ((array) ($profile['option_metal_options'] ?? []) as $option) {
+        if (!is_array($option)) {
+            continue;
+        }
+        $optionLabel = clean_string((string) ($option['label'] ?? ''), 120);
+        if ($optionLabel !== '' && strcasecmp($optionLabel, $metal) === 0) {
+            $savedMetal = $optionLabel;
+            break;
+        }
+    }
+    if ($savedMetal === '') {
+        return ['ok' => false, 'message' => 'Save this metal in the category profile before changing its product prices.'];
+    }
+
+    $factor = $direction === 'increase'
+        ? 1 + ($percentage / 100)
+        : max(0, 1 - ($percentage / 100));
+    $updatedProducts = 0;
+    $updatedPrices = 0;
+    $matchedVariations = 0;
+    $unpricedMatches = 0;
+    $beforePrices = [];
+    $afterPrices = [];
+
+    if (!isset($content['products']['items']) || !is_array($content['products']['items'])) {
+        $content['products']['items'] = [];
+    }
+
+    foreach ($content['products']['items'] as $productIndex => &$product) {
+        if (!is_array($product) || strcasecmp(product_attribute_profile_type($product), $attributeType) !== 0) {
+            continue;
+        }
+
+        $productChanged = false;
+        if (!is_array($product['metal_variations'] ?? null)) {
+            continue;
+        }
+        foreach ($product['metal_variations'] as $variationIndex => &$variation) {
+            if (!is_array($variation) || strcasecmp((string) ($variation['metal'] ?? ''), $savedMetal) !== 0) {
+                continue;
+            }
+
+            $matchedVariations++;
+            $currentPrice = round(max(0, (float) (preg_replace('/[^0-9.]/', '', (string) ($variation['price'] ?? '0')) ?: '0')), 2);
+            if ($currentPrice <= 0) {
+                $unpricedMatches++;
+                continue;
+            }
+
+            $newPrice = round(max(0, $currentPrice * $factor), 2);
+            $beforePrices[] = $currentPrice;
+            $afterPrices[] = $newPrice;
+            $variation['price'] = $newPrice;
+
+            $oldPriceRaw = preg_replace('/[^0-9.]/', '', (string) ($variation['old_price'] ?? ''));
+            if ($oldPriceRaw !== null && $oldPriceRaw !== '') {
+                $variation['old_price'] = round(max(0, (float) $oldPriceRaw * $factor), 2);
+            }
+
+            $variation = clean_product_metal_variation_item($variation, (int) $variationIndex);
+            $updatedPrices++;
+            $productChanged = true;
+        }
+        unset($variation);
+
+        if (!$productChanged) {
+            continue;
+        }
+
+        $listing = admin_listing_face_from_metals((array) ($product['metal_variations'] ?? []));
+        $product['new_price'] = $listing['new_price'];
+        $product['old_price'] = $listing['old_price'];
+        $product = clean_product_library_item($product, (int) $productIndex);
+        $updatedProducts++;
+    }
+    unset($product);
+
+    if ($matchedVariations === 0) {
+        return ['ok' => false, 'message' => 'No products in this category currently contain the selected metal.'];
+    }
+    if ($updatedPrices === 0) {
+        return ['ok' => false, 'message' => 'Matching products were found, but none has a current price to adjust.'];
+    }
+
+    return [
+        'ok' => true,
+        'attribute_type' => $attributeType,
+        'metal' => $savedMetal,
+        'direction' => $direction,
+        'percentage' => $percentage,
+        'matched_variations' => $matchedVariations,
+        'updated_products' => $updatedProducts,
+        'updated_prices' => $updatedPrices,
+        'unpriced_matches' => $unpricedMatches,
+        'before_min' => min($beforePrices),
+        'before_max' => max($beforePrices),
+        'after_min' => min($afterPrices),
+        'after_max' => max($afterPrices),
+    ];
+}
+
+function admin_apply_metal_price_adjustment_live(
+    string $attributeType,
+    string $metal,
+    string $direction,
+    float $percentage
+): array {
+    return site_content_with_lock(static function () use ($attributeType, $metal, $direction, $percentage): array {
+        $latestContent = load_site_content(true);
+        $result = admin_adjust_metal_prices($latestContent, $attributeType, $metal, $direction, $percentage);
+        if (!empty($result['ok'])) {
+            save_site_content($latestContent);
+        }
+        return $result;
+    });
+}
+
+function admin_metal_price_adjustment_from_post(): array
+{
+    $data = is_array($_POST['metal_price_adjustment'] ?? null) ? $_POST['metal_price_adjustment'] : [];
+    $percentageRaw = is_scalar($data['percentage'] ?? null) ? trim((string) $data['percentage']) : '';
+
+    return [
+        'attribute_type' => clean_string((string) ($data['attribute_type'] ?? $_POST['attribute_type'] ?? ''), 80),
+        'metal' => clean_string((string) ($data['metal'] ?? ''), 120),
+        'direction' => strtolower(clean_string((string) ($data['direction'] ?? ''), 20)),
+        'percentage' => is_numeric($percentageRaw) ? (float) $percentageRaw : 0.0,
+    ];
 }
 
 function admin_build_product_from_post(array $existing = [], int $index = 0): array
@@ -2109,6 +2327,41 @@ function admin_prepare_request_payload(string $action, array $content): ?array
                 'context' => ['Category' => $attributeType],
             ]);
         })(),
+        'adjust-metal-prices' => (function () use ($content) {
+            $adjustment = admin_metal_price_adjustment_from_post();
+            $previewContent = $content;
+            $preview = admin_adjust_metal_prices(
+                $previewContent,
+                (string) $adjustment['attribute_type'],
+                (string) $adjustment['metal'],
+                (string) $adjustment['direction'],
+                (float) $adjustment['percentage']
+            );
+            if (empty($preview['ok'])) {
+                return null;
+            }
+
+            $percentageLabel = admin_metal_price_adjustment_label((float) $preview['percentage']);
+            $directionLabel = (string) $preview['direction'] === 'decrease' ? 'Decrease' : 'Increase';
+            return admin_request_pack('Attributes', 'update', 'Metal Prices', (string) $preview['metal'] . ' in ' . (string) $preview['attribute_type'], [
+                'target_id' => (string) $preview['attribute_type'],
+                'before' => [
+                    'Current Price Range' => money_format((float) $preview['before_min']) . ' - ' . money_format((float) $preview['before_max']),
+                    'Priced Metal Variations' => (int) $preview['updated_prices'],
+                ],
+                'after' => [
+                    'Adjustment' => $directionLabel . ' by ' . $percentageLabel . '%',
+                    'Expected Price Range' => money_format((float) $preview['after_min']) . ' - ' . money_format((float) $preview['after_max']),
+                    'Products Affected' => (int) $preview['updated_products'],
+                ],
+                'raw_after' => $adjustment,
+                'context' => [
+                    'Category' => (string) $preview['attribute_type'],
+                    'Metal' => (string) $preview['metal'],
+                    'Adjustment' => $directionLabel . ' ' . $percentageLabel . '%',
+                ],
+            ]);
+        })(),
         'save-product-attributes' => (function () use ($content) {
             $productId = clean_string($_POST['product_id'] ?? '', 80);
             $index = admin_array_find_index($content['products']['items'], $productId);
@@ -2515,6 +2768,15 @@ function admin_apply_request_payload(array &$content, array $request): string
             }
             save_site_content($content);
             return $attributeType . ' attribute profile updated.';
+        case 'adjust-metal-prices':
+            $adjustment = is_array($rawAfter) ? $rawAfter : [];
+            $result = admin_apply_metal_price_adjustment_live(
+                clean_string((string) ($adjustment['attribute_type'] ?? ($payload['target_id'] ?? '')), 80),
+                clean_string((string) ($adjustment['metal'] ?? ''), 120),
+                strtolower(clean_string((string) ($adjustment['direction'] ?? ''), 20)),
+                is_numeric($adjustment['percentage'] ?? null) ? (float) $adjustment['percentage'] : 0.0
+            );
+            return admin_metal_price_adjustment_message($result);
         case 'save-product-attributes':
             $productId = clean_string((string) ($payload['target_id'] ?? ''), 80);
             $index = admin_array_find_index($content['products']['items'], $productId);
@@ -2816,6 +3078,7 @@ function admin_request_entity_from_action(string $action): string
         'save-settings' => 'Site Settings',
         'save-categories' => 'Homepage Categories',
         'save-attribute-profile' => 'Attribute Profile',
+        'adjust-metal-prices' => 'Metal Prices',
         'save-product-attributes' => 'Product Attributes',
         'save-diamonds' => 'Diamond Inventory',
         'create-diamond', 'update-diamond', 'delete-diamond' => 'Diamond',
@@ -2839,7 +3102,7 @@ function admin_request_area_from_action(string $action): string
         'save-hero', 'save-celebs', 'save-social-gallery', 'save-faq', 'create-shape', 'update-shape', 'delete-shape' => 'Homepage Content',
         'save-settings', 'save-navigation', 'save-footer' => 'Settings',
         'save-categories' => 'Categories',
-        'save-attribute-profile', 'save-product-attributes' => 'Attributes',
+        'save-attribute-profile', 'adjust-metal-prices', 'save-product-attributes' => 'Attributes',
         'save-diamonds', 'create-diamond', 'update-diamond', 'delete-diamond' => 'Diamonds',
         'create-product', 'update-product', 'delete-product', 'save-catalog-assignments' => 'Catalog',
         'create-news', 'update-news', 'delete-news' => 'Azuronn News',
@@ -3282,10 +3545,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     if (admin_is_employee_portal() && in_array($action, admin_requestable_actions(), true)) {
+        $requestReturnParams = [];
+        if ($action === 'adjust-metal-prices') {
+            $adjustment = admin_metal_price_adjustment_from_post();
+            if ((string) $adjustment['attribute_type'] !== '') {
+                $requestReturnParams['type'] = (string) $adjustment['attribute_type'];
+            }
+        }
         $preparedPayload = admin_prepare_request_payload($action, $content);
         if ($preparedPayload === null) {
-            admin_set_flash('error', 'The request could not be prepared.');
-            admin_redirect($returnView);
+            $message = 'The request could not be prepared.';
+            if ($action === 'adjust-metal-prices') {
+                $previewContent = $content;
+                $validation = admin_adjust_metal_prices(
+                    $previewContent,
+                    (string) $adjustment['attribute_type'],
+                    (string) $adjustment['metal'],
+                    (string) $adjustment['direction'],
+                    (float) $adjustment['percentage']
+                );
+                $message = admin_metal_price_adjustment_message($validation);
+            }
+            admin_set_flash('error', $message);
+            admin_redirect($returnView, $requestReturnParams);
         }
         $request = admin_create_request(
             $action,
@@ -3296,7 +3578,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             clean_string((string) ($_SESSION[admin_session_key()]['name'] ?? ''), 120)
         );
         admin_set_flash('success', !empty($request['_created']) ? 'Request has been sent to Super Admin.' : 'An identical pending request already exists for this change.');
-        admin_redirect($returnView);
+        admin_redirect($returnView, $requestReturnParams);
     }
 
     switch ($action) {
@@ -3394,6 +3676,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             save_site_content($content);
             admin_set_flash('success', 'Categories updated.');
             admin_redirect('categories');
+            break;
+
+        case 'adjust-metal-prices':
+            $adjustment = admin_metal_price_adjustment_from_post();
+            $result = admin_apply_metal_price_adjustment_live(
+                (string) $adjustment['attribute_type'],
+                (string) $adjustment['metal'],
+                (string) $adjustment['direction'],
+                (float) $adjustment['percentage']
+            );
+            admin_set_flash(!empty($result['ok']) ? 'success' : 'error', admin_metal_price_adjustment_message($result));
+            admin_redirect('attributes', [
+                'type' => (string) $adjustment['attribute_type'],
+            ]);
             break;
 
         case 'save-attribute-profile':
@@ -5608,10 +5904,11 @@ if (isset($_GET['download']) && $_GET['download'] === 'newsletter-subscribers' &
                               </div>
                               <?php admin_textarea('product[option_metal_options][' . $optionIndex . '][description]', 'Description', $option['description'] ?? '', 3); ?>
                               <input type="hidden" name="product[option_metal_options][<?= $optionIndex ?>][value]" value="<?= admin_html($option['value'] ?? '') ?>">
+                              <?php admin_metal_price_adjustment_controls($optionIndex); ?>
                             </div>
                           <?php endforeach; ?>
                         </div>
-                        <button class="admin-add" type="button" data-add-item data-template="tpl-product-detail-option">Add Metal Option</button>
+                        <button class="admin-add" type="button" data-add-item data-template="tpl-category-metal-option">Add Metal Option</button>
                       </div>
                     </section>
                   <?php // Priced add-on groups (carat weight, chain length, …). Not
@@ -7142,6 +7439,18 @@ if (isset($_GET['download']) && $_GET['download'] === 'newsletter-subscribers' &
         <?php admin_input('product[option_size_choices][__PRODUCT_SIZE_INDEX__][label]', 'Label', ''); ?>
         <?php admin_input('product[option_size_choices][__PRODUCT_SIZE_INDEX__][caption]', 'Caption', ''); ?>
       </div>
+    </div>
+  </template>
+
+  <template id="tpl-category-metal-option">
+    <div class="admin-repeater-item compact-item">
+      <div class="admin-item-head"><h4>Metal Option</h4><button class="admin-remove" type="button" data-remove-item>Delete</button></div>
+      <div class="admin-grid two-up">
+        <?php admin_input('product[option_metal_options][__PRODUCT_METAL_INDEX__][label]', 'Label', ''); ?>
+        <?php admin_input('product[option_metal_options][__PRODUCT_METAL_INDEX__][color_hex]', 'Metal Color *', '#c9a96e', 'color', 'required', 'Pick the display color for this metal.'); ?>
+      </div>
+      <?php admin_textarea('product[option_metal_options][__PRODUCT_METAL_INDEX__][description]', 'Description', '', 3); ?>
+      <?php admin_metal_price_adjustment_controls('__PRODUCT_METAL_INDEX__'); ?>
     </div>
   </template>
 

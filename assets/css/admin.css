@@ -573,7 +573,8 @@ img { max-width: 100%; display: block; }
 .admin-add,
 .admin-remove,
 .admin-mini-btn,
-.admin-metal-apply-btn {
+.admin-metal-apply-btn,
+.admin-metal-price-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -668,6 +669,121 @@ img { max-width: 100%; display: block; }
 }
 
 .admin-metal-apply-btn:hover { background: var(--green-2); transform: translateY(-1px); }
+
+.admin-metal-price-adjustment {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(120px, 150px) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.admin-metal-price-adjustment-copy {
+  align-self: center;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-metal-price-adjustment-copy strong {
+  color: var(--green);
+  font-size: 0.88rem;
+}
+
+.admin-metal-price-adjustment-copy small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.admin-metal-percentage-field {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-metal-percentage-field > span:first-child {
+  color: var(--green);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-metal-percentage-input {
+  position: relative;
+  display: block;
+}
+
+.admin-metal-percentage-input input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 34px 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+}
+
+.admin-metal-percentage-input input:focus {
+  outline: none;
+  border-color: var(--green-2);
+  box-shadow: 0 0 0 3px rgba(30, 92, 70, 0.12);
+}
+
+.admin-metal-percentage-input b {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 0.82rem;
+  pointer-events: none;
+}
+
+.admin-metal-price-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(128px, 1fr));
+  gap: 8px;
+}
+
+.admin-metal-price-btn {
+  min-height: 42px;
+  padding: 9px 13px;
+  white-space: nowrap;
+  background: #fff;
+}
+
+.admin-metal-price-btn.increase {
+  color: var(--green);
+  border-color: rgba(30, 92, 70, 0.35);
+}
+
+.admin-metal-price-btn.increase:hover {
+  background: var(--green);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.admin-metal-price-btn.decrease {
+  color: var(--danger);
+  border-color: rgba(156, 56, 48, 0.35);
+}
+
+.admin-metal-price-btn.decrease:hover {
+  background: var(--danger);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.admin-metal-price-btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+  transform: none;
+}
 
 .admin-icon-link {
   display: inline-flex;
@@ -1981,5 +2097,13 @@ img { max-width: 100%; display: block; }
   .admin-attr-group { padding: 20px 20px 22px; }
   .admin-attr-group + .admin-attr-group { margin-top: 18px; }
   .admin-attr-group > .admin-table-note { padding-left: 0; }
+  .admin-metal-price-adjustment { grid-template-columns: 1fr minmax(120px, 150px); }
+  .admin-metal-price-actions { grid-column: 1 / -1; }
+}
+
+@media (max-width: 620px) {
+  .admin-metal-price-adjustment { grid-template-columns: 1fr; align-items: stretch; }
+  .admin-metal-price-actions { grid-column: auto; grid-template-columns: 1fr; }
+  .admin-metal-price-btn { width: 100%; }
 }
 

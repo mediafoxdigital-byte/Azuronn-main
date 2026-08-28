@@ -53,7 +53,7 @@ document.addEventListener('click', (event) => {
 // server HTML, resurrecting removed fields (e.g. a price box or a duplicate
 // metal block) that no longer exist in the template. clearOldAttributeDrafts()
 // purges any draft that doesn't carry the current version on load.
-const ATTRIBUTE_DRAFT_VERSION = 'v12';
+const ATTRIBUTE_DRAFT_VERSION = 'v13';
 const REMOVED_ATTRIBUTE_TEXT = [
   'Color Choice Cards',
   'Color Choice',
@@ -165,6 +165,76 @@ function saveAttributeDraft(form) {
   if (!key || !editor) return;
   localStorage.setItem(key, snapshotEditorMarkup(editor));
 }
+
+function submitMetalPriceAdjustment(button) {
+  const adjustment = button.closest('[data-metal-price-adjustment]');
+  const item = button.closest('.admin-repeater-item');
+  const profileForm = button.closest('form');
+  const percentageInput = adjustment ? adjustment.querySelector('[data-metal-price-percentage]') : null;
+  const metalInput = item ? item.querySelector('input[name$="[label]"]') : null;
+  const categoryInput = profileForm ? profileForm.querySelector('input[name="attribute_type"]') : null;
+  const csrfInput = profileForm ? profileForm.querySelector('input[name="csrf_token"]') : null;
+  const direction = button.dataset.direction === 'decrease' ? 'decrease' : 'increase';
+
+  if (!profileForm || !percentageInput || !metalInput || !categoryInput || !csrfInput) return;
+
+  const percentage = Number.parseFloat(percentageInput.value);
+  percentageInput.setCustomValidity('');
+  if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
+    percentageInput.setCustomValidity('Enter a percentage greater than 0 and no more than 100.');
+    percentageInput.reportValidity();
+    return;
+  }
+
+  const metal = metalInput.value.trim();
+  const category = categoryInput.value.trim();
+  if (!metal) {
+    metalInput.setCustomValidity('Enter and save the metal name before changing prices.');
+    metalInput.reportValidity();
+    metalInput.addEventListener('input', () => metalInput.setCustomValidity(''), { once: true });
+    return;
+  }
+
+  const verb = direction === 'decrease' ? 'Decrease' : 'Increase';
+  const confirmed = window.confirm(`${verb} every ${metal} product price in ${category} by ${percentage}%? This uses the current saved prices.`);
+  if (!confirmed) return;
+
+  const submitForm = document.createElement('form');
+  submitForm.method = 'post';
+  submitForm.action = profileForm.action;
+  submitForm.hidden = true;
+
+  const fields = {
+    csrf_token: csrfInput.value,
+    action: 'adjust-metal-prices',
+    return_view: 'attributes',
+    'metal_price_adjustment[attribute_type]': category,
+    'metal_price_adjustment[metal]': metal,
+    'metal_price_adjustment[direction]': direction,
+    'metal_price_adjustment[percentage]': String(percentage),
+  };
+
+  Object.entries(fields).forEach(([name, value]) => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = value;
+    submitForm.appendChild(input);
+  });
+
+  percentageInput.value = '';
+  saveAttributeDraft(profileForm);
+  button.disabled = true;
+  document.body.appendChild(submitForm);
+  submitForm.submit();
+}
+
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-metal-price-adjustment-button]');
+  if (!button) return;
+  event.preventDefault();
+  submitMetalPriceAdjustment(button);
+});
 
 function scheduleAttributeDraftSave(form) {
   const key = attributeDraftKey(form);
