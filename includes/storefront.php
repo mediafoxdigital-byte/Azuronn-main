@@ -439,6 +439,33 @@ function wishlist_product_id(string $productId): string
     return clean_string($productId, 80);
 }
 
+function product_metal_shape_galleries(array $variation): array
+{
+    $shapeGalleries = [];
+    foreach ((array) ($variation['shape_galleries'] ?? []) as $shape => $gallery) {
+        $shape = strtolower(clean_string((string) $shape, 40));
+        if ($shape === '' || !is_array($gallery)) {
+            continue;
+        }
+
+        $mediaItems = [];
+        foreach ($gallery as $media) {
+            $media = clean_image((string) $media);
+            if ($media !== '' && !in_array($media, $mediaItems, true)) {
+                $mediaItems[] = $media;
+            }
+            if (count($mediaItems) >= 6) {
+                break;
+            }
+        }
+        if ($mediaItems !== []) {
+            $shapeGalleries[$shape] = $mediaItems;
+        }
+    }
+
+    return $shapeGalleries;
+}
+
 function product_option_data(array $product): array
 {
     // Ring products all store product_type='Ring' and carry their section in
@@ -554,6 +581,7 @@ function product_option_data(array $product): array
     }
 
     $requestedMetal = strtolower(clean_string($_POST['metal'] ?? $_GET['metal'] ?? '', 40));
+    $requestedShape = strtolower(clean_string($_POST['diamond_shape'] ?? $_GET['diamond_shape'] ?? $_GET['shape'] ?? '', 40));
     
     if ($requestedMetal === '' && $isMatrixProduct && !empty($product['metal_variations'])) {
         foreach ($product['metal_variations'] as $mv) {
@@ -571,7 +599,20 @@ function product_option_data(array $product): array
     if ($isMatrixProduct && isset($product['metal_variations']) && is_array($product['metal_variations'])) {
         foreach ($product['metal_variations'] as $mv) {
             if (($mv['active'] ?? false) && strtolower(content_slug($mv['metal'] ?? '', 'metal')) === $requestedMetal) {
-                if (!empty($mv['gallery']) && is_array($mv['gallery'])) {
+                $shapeGalleries = product_metal_shape_galleries($mv);
+                $effectiveShape = $requestedShape;
+                if ($effectiveShape === '') {
+                    foreach ((array) ($mv['shapes'] ?? []) as $variationShape) {
+                        $variationShape = strtolower(clean_string((string) $variationShape, 40));
+                        if ($variationShape !== '') {
+                            $effectiveShape = $variationShape;
+                            break;
+                        }
+                    }
+                }
+                if ($effectiveShape !== '' && isset($shapeGalleries[$effectiveShape])) {
+                    $metalGallery = $shapeGalleries[$effectiveShape];
+                } elseif (!empty($mv['gallery']) && is_array($mv['gallery'])) {
                     $metalGallery = $mv['gallery'];
                 } elseif (!empty($mv['image'])) {
                     $metalGallery = [$mv['image']];
@@ -661,6 +702,7 @@ function product_option_data(array $product): array
                             }
                         }
                     }
+                    $varShapeGalleries = product_metal_shape_galleries($var);
                     
                     $varColorHex = '';
                     foreach ($profileMetalOptions as $pOpt) {
@@ -727,6 +769,7 @@ function product_option_data(array $product): array
                         'addon_options' => $varAddonOptions,
                         'metal_desc' => $var['description'] ?? '',
                         'gallery' => $varGallery,
+                        'shape_galleries' => $varShapeGalleries,
                         'features' => clean_string_list((array) ($var['features'] ?? []), 160),
                         'color_hex' => $varColorHex,
                     ];
@@ -895,6 +938,7 @@ function product_option_data(array $product): array
             'band_options' => [],
             'metal_desc' => clean_multiline((string) ($option['description'] ?? ''), 220),
             'gallery' => $gallery,
+            'shape_galleries' => [],
             'features' => [],
             'color_hex' => clean_string((string) ($option['color_hex'] ?? ''), 7),
         ];
@@ -1650,10 +1694,19 @@ function product_selection_primary_media(array $product, array $selection): stri
 {
     $optionData = product_option_data($product);
     $selectedMetal = clean_string((string) ($selection['metal'] ?? ''), 40);
+    $selectedShape = strtolower(clean_string((string) ($selection['diamond_shape'] ?? ''), 40));
 
     foreach ((array) ($optionData['metal_options'] ?? []) as $option) {
         if ((string) ($option['value'] ?? '') !== $selectedMetal) {
             continue;
+        }
+
+        $shapeGalleries = is_array($option['shape_galleries'] ?? null) ? $option['shape_galleries'] : [];
+        foreach ((array) ($shapeGalleries[$selectedShape] ?? []) as $media) {
+            $media = clean_image((string) $media);
+            if ($media !== '') {
+                return $media;
+            }
         }
 
         foreach ((array) ($option['gallery'] ?? []) as $media) {

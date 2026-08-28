@@ -1235,6 +1235,33 @@ function admin_build_product_from_post(array $existing = [], int $index = 0): ar
                 }
             }
             $mv['gallery'] = $gallery;
+
+            $shapeGalleries = [];
+            if (admin_product_type_is_ring($profileType)) {
+                $profileFieldKey = content_slug($profileType, 'ring');
+                foreach (array_keys(available_diamond_shapes()) as $shapeKey) {
+                    $shapeFieldKey = content_slug((string) $shapeKey, 'shape');
+                    $existingShapeGallery = is_array($existingVar['shape_galleries'][$shapeKey] ?? null)
+                        ? array_values($existingVar['shape_galleries'][$shapeKey])
+                        : [];
+                    $shapeGallery = [];
+                    for ($i = 0; $i < 6; $i++) {
+                        $fieldPrefix = "metal_shape_gallery_{$profileFieldKey}_{$idx}_{$shapeFieldKey}_{$i}";
+                        $media = admin_select_image_or_url(
+                            $fieldPrefix . '_url',
+                            $fieldPrefix . '_file',
+                            $existingShapeGallery[$i] ?? ''
+                        );
+                        if ($media !== '') {
+                            $shapeGallery[] = $media;
+                        }
+                    }
+                    if ($shapeGallery !== []) {
+                        $shapeGalleries[(string) $shapeKey] = $shapeGallery;
+                    }
+                }
+            }
+            $mv['shape_galleries'] = $shapeGalleries;
             
             $metalVariations[] = $mv;
         }
@@ -5404,24 +5431,98 @@ if (isset($_GET['download']) && $_GET['download'] === 'newsletter-subscribers' &
                             </div>
                         </div>
                         
-                        <div class="admin-grid two-up" style="margin-top:16px;">
-                          <?php if ($globalShapes !== []): ?>
-                          <div class="admin-field">
-                            <span style="font-weight:600; font-size:0.9em; margin-bottom:8px; display:block;">Supported Shapes</span>
-                            <div class="admin-choice-grid">
-                              <?php
-                                $savedShapes = $existingVar['shapes'] ?? [];
-                              ?>
+                        <?php if ($globalShapes !== []): ?>
+                          <?php
+                            $savedShapes = array_values((array) ($existingVar['shapes'] ?? []));
+                            $savedShapeGalleries = is_array($existingVar['shape_galleries'] ?? null)
+                                ? $existingVar['shape_galleries']
+                                : [];
+                            $initialShapeMedia = '';
+                            foreach ($savedShapes as $savedShape) {
+                                if (array_values((array) ($savedShapeGalleries[$savedShape] ?? [])) !== []) {
+                                    $initialShapeMedia = (string) $savedShape;
+                                    break;
+                                }
+                            }
+                            if ($initialShapeMedia === '' && $savedShapes !== []) {
+                                $initialShapeMedia = (string) $savedShapes[0];
+                            }
+                            $shapeMediaProfileKey = content_slug((string) $pType, 'ring');
+                          ?>
+                          <div class="admin-field admin-shape-media-picker" data-metal-shape-media-picker data-active-shape="<?= admin_html($initialShapeMedia) ?>">
+                            <span class="admin-shape-media-label">Supported Diamond Shapes</span>
+                            <div class="admin-shape-media-options">
                               <?php foreach ($globalShapes as $sKey => $sLabel): ?>
-                                <label class="admin-choice-chip" style="padding:6px 10px;">
-                                  <input type="checkbox" name="product[<?= admin_html($mvFieldKey) ?>][<?= $mIdx ?>][shapes][]" value="<?= admin_html($sKey) ?>" <?= in_array($sKey, $savedShapes, true) ? 'checked' : '' ?>>
-                                  <span style="font-size:0.9em;"><?= admin_html($sLabel) ?></span>
-                                </label>
+                                <?php $shapeChecked = in_array($sKey, $savedShapes, true); ?>
+                                <div class="admin-shape-media-option" data-shape-media-option="<?= admin_html((string) $sKey) ?>">
+                                  <label class="admin-choice-chip">
+                                    <input type="checkbox" name="product[<?= admin_html($mvFieldKey) ?>][<?= $mIdx ?>][shapes][]" value="<?= admin_html((string) $sKey) ?>" data-shape-media-toggle <?= $shapeChecked ? 'checked' : '' ?>>
+                                    <span><?= admin_html((string) $sLabel) ?></span>
+                                  </label>
+                                  <button class="admin-shape-media-open" type="button" data-shape-media-open="<?= admin_html((string) $sKey) ?>" title="Edit <?= admin_html((string) $sLabel) ?> media" aria-label="Edit <?= admin_html((string) $sLabel) ?> media" <?= $shapeChecked ? '' : 'hidden' ?>>
+                                    <i class="fas fa-images" aria-hidden="true"></i>
+                                  </button>
+                                </div>
+                              <?php endforeach; ?>
+                            </div>
+
+                            <div class="admin-shape-media-panels">
+                              <?php foreach ($globalShapes as $sKey => $sLabel): ?>
+                                <?php
+                                  $shapeGallery = array_values((array) ($savedShapeGalleries[$sKey] ?? []));
+                                  $shapeFieldKey = content_slug((string) $sKey, 'shape');
+                                  $shapePanelOpen = $initialShapeMedia === (string) $sKey && in_array($sKey, $savedShapes, true);
+                                ?>
+                                <section class="admin-shape-media-panel" data-shape-media-panel="<?= admin_html((string) $sKey) ?>" <?= $shapePanelOpen ? '' : 'hidden' ?>>
+                                  <div class="admin-shape-media-panel-head">
+                                    <div>
+                                      <span>Diamond Media</span>
+                                      <h5><?= admin_html((string) $sLabel) ?> / <?= admin_html((string) $metalLabel) ?></h5>
+                                    </div>
+                                    <strong data-shape-media-count><?= count($shapeGallery) ?> / 6</strong>
+                                  </div>
+                                  <div class="admin-shape-media-grid">
+                                    <?php for ($i = 0; $i < 6; $i++): ?>
+                                      <?php
+                                        $currentShapeMedia = clean_image((string) ($shapeGallery[$i] ?? ''));
+                                        $fieldPrefix = 'metal_shape_gallery_' . $shapeMediaProfileKey . '_' . $mIdx . '_' . $shapeFieldKey . '_' . $i;
+                                        $slotLabel = $i === 0 ? 'Primary' : 'Media ' . ($i + 1);
+                                      ?>
+                                      <div class="admin-shape-media-slot" data-shape-media-slot>
+                                        <div class="admin-shape-media-preview" data-shape-media-preview>
+                                          <?php if ($currentShapeMedia !== '' && media_asset_type($currentShapeMedia) === 'video'): ?>
+                                            <video src="<?= admin_html($currentShapeMedia) ?>" muted playsinline preload="metadata"></video>
+                                          <?php elseif ($currentShapeMedia !== ''): ?>
+                                            <img src="<?= admin_html($currentShapeMedia) ?>" alt="">
+                                          <?php else: ?>
+                                            <i class="far fa-image" aria-hidden="true"></i>
+                                          <?php endif; ?>
+                                        </div>
+                                        <div class="admin-shape-media-slot-head">
+                                          <span><?= admin_html($slotLabel) ?></span>
+                                          <small>Image / video</small>
+                                        </div>
+                                        <input type="hidden" name="<?= admin_html($fieldPrefix) ?>_url" value="<?= admin_html($currentShapeMedia) ?>" data-shape-media-current>
+                                        <div class="admin-shape-media-slot-actions">
+                                          <label class="admin-shape-media-upload" title="Upload <?= admin_html((string) $sLabel) ?> media">
+                                            <i class="fas fa-upload" aria-hidden="true"></i>
+                                            <span data-shape-media-upload-label><?= $currentShapeMedia !== '' ? 'Replace' : 'Upload' ?></span>
+                                            <input class="admin-shape-media-file" type="file" name="<?= admin_html($fieldPrefix) ?>_file" accept="image/*,video/*" data-shape-media-file>
+                                          </label>
+                                          <button class="admin-shape-media-remove" type="button" data-shape-media-remove title="Remove media" aria-label="Remove media" <?= $currentShapeMedia !== '' ? '' : 'hidden' ?>>
+                                            <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    <?php endfor; ?>
+                                  </div>
+                                </section>
                               <?php endforeach; ?>
                             </div>
                           </div>
-                          <?php endif; ?>
-                          
+                        <?php endif; ?>
+
+                        <div class="admin-grid" style="margin-top:16px;">
                           <div class="admin-field">
                             <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
                               <span style="font-weight:600; font-size:0.9em;">Supported Sizes</span>

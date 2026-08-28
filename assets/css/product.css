@@ -159,6 +159,8 @@ body.product-page .pp-thumbs {
   gap: 12px;
 }
 
+body.product-page .pp-thumbs[hidden] { display: none; }
+
 body.product-page .pp-thumbs [data-product-thumb] {
   aspect-ratio: 1 / 1;
   padding: 0;

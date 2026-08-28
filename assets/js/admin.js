@@ -118,6 +118,143 @@ function resetMetalPriceAdjustmentButtons(scope = document) {
   });
 }
 
+function adminMediaPreviewType(source, file = null) {
+  if (file && typeof file.type === 'string' && file.type.startsWith('video/')) return 'video';
+  const cleanSource = String(source || '').split('?')[0].toLowerCase();
+  return /\.(mp4|webm|ogv|mov|m4v)$/.test(cleanSource) ? 'video' : 'image';
+}
+
+function syncShapeMediaCount(panel) {
+  if (!panel) return;
+  const count = Array.from(panel.querySelectorAll('[data-shape-media-slot]')).filter((slot) => {
+    const current = slot.querySelector('[data-shape-media-current]');
+    const file = slot.querySelector('[data-shape-media-file]');
+    return (current && current.value.trim() !== '') || (file && file.files && file.files.length > 0);
+  }).length;
+  const countNode = panel.querySelector('[data-shape-media-count]');
+  if (countNode) countNode.textContent = `${count} / 6`;
+}
+
+function syncShapeMediaSlot(slot, selectedFile = null) {
+  if (!slot) return;
+  const currentInput = slot.querySelector('[data-shape-media-current]');
+  const fileInput = slot.querySelector('[data-shape-media-file]');
+  const preview = slot.querySelector('[data-shape-media-preview]');
+  const removeButton = slot.querySelector('[data-shape-media-remove]');
+  const uploadLabel = slot.querySelector('[data-shape-media-upload-label]');
+  const file = selectedFile || (fileInput && fileInput.files ? fileInput.files[0] : null);
+
+  if (slot.dataset.previewObjectUrl) {
+    URL.revokeObjectURL(slot.dataset.previewObjectUrl);
+    delete slot.dataset.previewObjectUrl;
+  }
+
+  let source = currentInput ? currentInput.value.trim() : '';
+  if (file) {
+    source = URL.createObjectURL(file);
+    slot.dataset.previewObjectUrl = source;
+  }
+
+  if (preview) {
+    preview.replaceChildren();
+    if (source !== '') {
+      if (adminMediaPreviewType(source, file) === 'video') {
+        const video = document.createElement('video');
+        video.src = source;
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        preview.appendChild(video);
+      } else {
+        const image = document.createElement('img');
+        image.src = source;
+        image.alt = '';
+        preview.appendChild(image);
+      }
+    } else {
+      const icon = document.createElement('i');
+      icon.className = 'far fa-image';
+      icon.setAttribute('aria-hidden', 'true');
+      preview.appendChild(icon);
+    }
+  }
+
+  if (removeButton) removeButton.hidden = source === '';
+  if (uploadLabel) uploadLabel.textContent = file ? 'Selected' : (source !== '' ? 'Replace' : 'Upload');
+  syncShapeMediaCount(slot.closest('[data-shape-media-panel]'));
+}
+
+function syncMetalShapeMediaPicker(picker, preferredShape = '') {
+  if (!picker) return;
+  const options = Array.from(picker.querySelectorAll('[data-shape-media-option]'));
+  const checkedShapes = options
+    .filter((option) => option.querySelector('[data-shape-media-toggle]')?.checked)
+    .map((option) => option.dataset.shapeMediaOption || '');
+  let activeShape = preferredShape || picker.dataset.activeShape || '';
+  if (!checkedShapes.includes(activeShape)) activeShape = checkedShapes[0] || '';
+  picker.dataset.activeShape = activeShape;
+
+  options.forEach((option) => {
+    const shape = option.dataset.shapeMediaOption || '';
+    const checkbox = option.querySelector('[data-shape-media-toggle]');
+    const openButton = option.querySelector('[data-shape-media-open]');
+    const checked = Boolean(checkbox?.checked);
+    if (openButton) {
+      openButton.hidden = !checked;
+      openButton.classList.toggle('is-active', checked && shape === activeShape);
+    }
+  });
+
+  picker.querySelectorAll('[data-shape-media-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.shapeMediaPanel !== activeShape;
+  });
+}
+
+function syncMetalShapeMediaPickers(scope = document) {
+  scope.querySelectorAll('[data-shape-media-slot]').forEach((slot) => syncShapeMediaSlot(slot));
+  scope.querySelectorAll('[data-metal-shape-media-picker]').forEach((picker) => syncMetalShapeMediaPicker(picker));
+}
+
+document.addEventListener('change', (event) => {
+  const shapeToggle = event.target.closest?.('[data-shape-media-toggle]');
+  if (shapeToggle) {
+    const picker = shapeToggle.closest('[data-metal-shape-media-picker]');
+    const shape = shapeToggle.value || '';
+    if (!shapeToggle.checked && picker) {
+      const panel = Array.from(picker.querySelectorAll('[data-shape-media-panel]'))
+        .find((item) => item.dataset.shapeMediaPanel === shape);
+      panel?.querySelectorAll('[data-shape-media-file]').forEach((input) => {
+        input.value = '';
+        syncShapeMediaSlot(input.closest('[data-shape-media-slot]'));
+      });
+    }
+    syncMetalShapeMediaPicker(picker, shapeToggle.checked ? shape : '');
+    return;
+  }
+
+  const mediaFile = event.target.closest?.('[data-shape-media-file]');
+  if (mediaFile) syncShapeMediaSlot(mediaFile.closest('[data-shape-media-slot]'), mediaFile.files?.[0] || null);
+});
+
+document.addEventListener('click', (event) => {
+  const openButton = event.target.closest('[data-shape-media-open]');
+  if (openButton) {
+    event.preventDefault();
+    syncMetalShapeMediaPicker(openButton.closest('[data-metal-shape-media-picker]'), openButton.dataset.shapeMediaOpen || '');
+    return;
+  }
+
+  const removeButton = event.target.closest('[data-shape-media-remove]');
+  if (!removeButton) return;
+  event.preventDefault();
+  const slot = removeButton.closest('[data-shape-media-slot]');
+  const currentInput = slot?.querySelector('[data-shape-media-current]');
+  const fileInput = slot?.querySelector('[data-shape-media-file]');
+  if (currentInput) currentInput.value = '';
+  if (fileInput) fileInput.value = '';
+  syncShapeMediaSlot(slot);
+});
+
 function snapshotEditorMarkup(editor) {
   const clone = editor.cloneNode(true);
   const sourceControls = editor.querySelectorAll('input, textarea, select');
@@ -345,6 +482,7 @@ function restoreAttributeDrafts(scope = document) {
     resetMetalPriceAdjustmentButtons(form);
     removeRetiredAttributeControls(form);
     syncProductEditorScopes(form);
+    syncMetalShapeMediaPickers(form);
 
     form.addEventListener('submit', () => {
       submittingAttributeForms.add(form);
@@ -1077,6 +1215,7 @@ document.addEventListener('selectionchange', () => {
 // showing the "choose a category" state while a category is visibly selected.
 function syncAdminProductEditors() {
   resetMetalPriceAdjustmentButtons();
+  syncMetalShapeMediaPickers();
   syncCouponFields();
   syncCategoryToProductType();
   syncProductEditorScopes();

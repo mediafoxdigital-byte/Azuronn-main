@@ -665,6 +665,29 @@ function clean_product_metal_variation_item(array $item, int $index = 0): array
     if ($image !== '' && empty($gallery)) {
         $gallery[] = $image;
     }
+
+    $shapeGalleries = [];
+    foreach ((array) ($item['shape_galleries'] ?? []) as $shape => $shapeGallery) {
+        $shape = strtolower(clean_string((string) $shape, 40));
+        if ($shape === '' || !is_array($shapeGallery)) {
+            continue;
+        }
+
+        $cleanGallery = [];
+        foreach ($shapeGallery as $media) {
+            $media = clean_image((string) $media);
+            if ($media !== '' && !in_array($media, $cleanGallery, true)) {
+                $cleanGallery[] = $media;
+            }
+            if (count($cleanGallery) >= 6) {
+                break;
+            }
+        }
+
+        if ($cleanGallery !== []) {
+            $shapeGalleries[$shape] = $cleanGallery;
+        }
+    }
     
     $hoverImage = $gallery[1] ?? '';
     
@@ -705,6 +728,7 @@ function clean_product_metal_variation_item(array $item, int $index = 0): array
         'image' => $image,
         'hover_image' => $hoverImage,
         'gallery' => $gallery,
+        'shape_galleries' => $shapeGalleries,
         'description' => $description,
         'features' => $features,
         'shapes' => $shapes,

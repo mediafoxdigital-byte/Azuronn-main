@@ -346,15 +346,13 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
           <?= $renderProductMedia($productPrimaryMedia, (string) ($product['name'] ?? 'Product'), 'product-gallery-media', ['data-product-main-media' => 'true'], true) ?>
           <span class="pp-stage-rotate" aria-hidden="true"><i class="fas fa-cube"></i></span>
         </div>
-        <?php if (count($productGallery) > 1): ?>
-        <div class="pp-thumbs" data-product-thumbs>
+        <div class="pp-thumbs" data-product-thumbs <?= count($productGallery) > 1 ? '' : 'hidden' ?>>
           <?php foreach ($productGallery as $index => $image): ?>
             <button type="button" class="product-thumb <?= $index === 0 ? 'is-active' : '' ?>" data-product-thumb data-media-src="<?= h($image) ?>" data-media-type="<?= h(media_asset_type($image)) ?>" aria-label="<?= h('View media ' . ($index + 1)) ?>">
               <?= $renderProductMedia($image, (string) ($product['name'] ?? 'Product'), 'product-thumb-media', [], false) ?>
             </button>
           <?php endforeach; ?>
         </div>
-        <?php endif; ?>
       </div>
 
       <div class="pp-config">
@@ -473,6 +471,7 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
               <?php foreach ($options['metal_options'] as $metal): ?>
                 <?php $metalTone = $optionToneFor((string) ($metal['label'] ?? '')); ?>
                 <?php $metalGalleryJson = (string) json_encode(array_values(array_filter(array_map(static fn (mixed $item): string => clean_image((string) $item), (array) ($metal['gallery'] ?? [])), static fn (string $item): bool => $item !== '')), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>
+                <?php $metalShapeGalleriesJson = (string) json_encode(product_metal_shape_galleries($metal), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>
                 <?php $metalFeaturesJson = (string) json_encode(array_values(array_filter(array_map(static fn (mixed $item): string => clean_string((string) $item, 160), (array) (($metal['features'] ?? []) !== [] ? $metal['features'] : ($options['features'] ?? []))), static fn (string $item): bool => $item !== '')), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>
                 <?php $metalBandOptionsJson = (string) json_encode(array_values(array_filter((array) ($metal['band_options'] ?? []), static fn (mixed $item): bool => is_array($item) && clean_string((string) ($item['value'] ?? ''), 80) !== '')), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>
                 <?php $metalAddonOptionsJson = (string) json_encode((static function (array $metal, array $options): array {
@@ -486,7 +485,7 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
                 })($metal, $options), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>
                 <?php $metalColorHex = !empty($metal['color_hex']) ? (string) $metal['color_hex'] : ''; ?>
                 <label class="option-card pp-metal tone-<?= h($metalTone) ?>">
-                  <input type="radio" name="metal" value="<?= h((string) $metal['value']) ?>" data-echo-label="<?= h((string) ($metal['label'] ?? '')) ?>" data-base-price="<?= h((string) ($metal['base_price'] ?? 0)) ?>" data-shapes="<?= h(implode(',', (array)($metal['shapes'] ?? []))) ?>" data-sizes="<?= h(implode(',', (array)($metal['sizes'] ?? []))) ?>" data-bands="<?= h(implode(',', (array)($metal['bands'] ?? []))) ?>" data-band-options="<?= h($metalBandOptionsJson) ?>" data-addon-groups="<?= h($metalAddonOptionsJson) ?>" data-desc="<?= h((string) ($metal['metal_desc'] ?? '')) ?>" data-gallery="<?= h($metalGalleryJson) ?>" data-features="<?= h($metalFeaturesJson) ?>" data-inventory-tracked="<?= !empty($metal['inventory_tracked']) ? '1' : '0' ?>" data-inventory-quantity="<?= h((string) clean_int($metal['inventory_quantity'] ?? 0, 0, 1000000)) ?>" <?= $selectedVariant['metal'] === (string) $metal['value'] ? 'checked' : '' ?>>
+                  <input type="radio" name="metal" value="<?= h((string) $metal['value']) ?>" data-echo-label="<?= h((string) ($metal['label'] ?? '')) ?>" data-base-price="<?= h((string) ($metal['base_price'] ?? 0)) ?>" data-shapes="<?= h(implode(',', (array)($metal['shapes'] ?? []))) ?>" data-sizes="<?= h(implode(',', (array)($metal['sizes'] ?? []))) ?>" data-bands="<?= h(implode(',', (array)($metal['bands'] ?? []))) ?>" data-band-options="<?= h($metalBandOptionsJson) ?>" data-addon-groups="<?= h($metalAddonOptionsJson) ?>" data-desc="<?= h((string) ($metal['metal_desc'] ?? '')) ?>" data-gallery="<?= h($metalGalleryJson) ?>" data-shape-galleries="<?= h($metalShapeGalleriesJson) ?>" data-features="<?= h($metalFeaturesJson) ?>" data-inventory-tracked="<?= !empty($metal['inventory_tracked']) ? '1' : '0' ?>" data-inventory-quantity="<?= h((string) clean_int($metal['inventory_quantity'] ?? 0, 0, 1000000)) ?>" <?= $selectedVariant['metal'] === (string) $metal['value'] ? 'checked' : '' ?>>
                   <span class="pp-metal-orb"<?= $metalColorHex !== '' ? ' style="background: ' . h($metalColorHex) . ';"' : '' ?>></span>
                   <span class="pp-metal-name"><?= h((string) ($metal['label'] ?? '')) ?></span>
                 </label>
@@ -815,6 +814,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function parseJsonMediaMap(raw) {
+        try {
+            const parsed = JSON.parse(raw || '{}');
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+            return Object.fromEntries(Object.entries(parsed).map(([key, items]) => [
+                key,
+                Array.isArray(items) ? items.filter(item => typeof item === 'string' && item.trim() !== '').slice(0, 6) : [],
+            ]));
+        } catch (error) {
+            return {};
+        }
+    }
+
     function mediaMimeFor(src) {
         const cleanSrc = String(src || '').split('?')[0].toLowerCase();
         if (cleanSrc.endsWith('.webm')) return 'video/webm';
@@ -917,6 +929,7 @@ document.addEventListener('DOMContentLoaded', () => {
         galleryStage.replaceChildren(stageMedia);
 
         galleryThumbRow.replaceChildren();
+        galleryThumbRow.hidden = nextGallery.length <= 1;
         nextGallery.forEach((src, index) => {
             const thumb = document.createElement('button');
             thumb.type = 'button';
@@ -932,6 +945,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             galleryThumbRow.appendChild(thumb);
         });
+    }
+
+    function renderActiveSelectionGallery(activeMetal = document.querySelector('input[name="metal"]:checked')) {
+        if (!activeMetal) {
+            renderGallery(initialGallery);
+            return;
+        }
+
+        const activeShape = document.querySelector('input[name="shape"]:checked, input[name="diamond_shape"]:checked');
+        const shapeGalleries = parseJsonMediaMap(activeMetal.dataset.shapeGalleries);
+        const shapeGallery = activeShape ? (shapeGalleries[activeShape.value] || []) : [];
+        const metalGallery = parseJsonList(activeMetal.dataset.gallery);
+        renderGallery(shapeGallery.length > 0 ? shapeGallery : (metalGallery.length > 0 ? metalGallery : initialGallery));
     }
 
     function parseBandOptions(raw) {
@@ -1176,11 +1202,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAddonGroups(parseAddonGroups(activeMetal.dataset.addonGroups), shouldResetBandSelection);
             const nextFeatures = parseJsonList(activeMetal.dataset.features);
             renderHighlights(nextFeatures.length > 0 ? nextFeatures : baseFeatures);
-            if (activeMetal.dataset.gallery) {
-                renderGallery(parseJsonList(activeMetal.dataset.gallery));
-            } else {
-                renderGallery(initialGallery);
-            }
         } else {
             // fallback to original string if no matrix price is set
             livePriceEl.textContent = livePriceEl.dataset.originalPrice;
@@ -1335,9 +1356,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ringJourneyButton.textContent = isOutOfStock ? 'Out of Stock' : 'Choose This Design';
             ringJourneyButton.setAttribute('aria-disabled', isOutOfStock ? 'true' : 'false');
         }
+        renderActiveSelectionGallery(activeMetal);
     }
     
     metalInputs.forEach((input) => input.addEventListener('change', () => updateLivePrice(true)));
+    shapeInputs.forEach((input) => input.addEventListener('change', () => renderActiveSelectionGallery()));
     deliveryInputs.forEach(i => i.addEventListener('change', syncDeliveryMeta));
     document.addEventListener('change', (event) => {
         if (event.target instanceof HTMLInputElement && (event.target.name === 'band_claw_metal' || event.target.name.startsWith('addon['))) {
