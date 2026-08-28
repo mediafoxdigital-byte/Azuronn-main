@@ -166,7 +166,69 @@ function saveAttributeDraft(form) {
   localStorage.setItem(key, snapshotEditorMarkup(editor));
 }
 
-function submitMetalPriceAdjustment(button) {
+function getMetalPriceConfirmationDialog() {
+  let dialog = document.querySelector('[data-metal-price-confirm-dialog]');
+  if (dialog) return dialog;
+
+  dialog = document.createElement('dialog');
+  dialog.className = 'admin-metal-confirm-dialog';
+  dialog.setAttribute('data-metal-price-confirm-dialog', '');
+  dialog.setAttribute('aria-labelledby', 'metal-price-confirm-title');
+  dialog.innerHTML = `
+    <form method="dialog" class="admin-metal-confirm-shell">
+      <div class="admin-metal-confirm-icon" data-metal-confirm-icon aria-hidden="true">
+        <i class="fas fa-arrow-up"></i>
+      </div>
+      <div class="admin-metal-confirm-copy">
+        <span>Confirm price adjustment</span>
+        <h3 id="metal-price-confirm-title" data-metal-confirm-title></h3>
+        <p data-metal-confirm-message></p>
+      </div>
+      <dl class="admin-metal-confirm-summary">
+        <div><dt>Category</dt><dd data-metal-confirm-category></dd></div>
+        <div><dt>Metal</dt><dd data-metal-confirm-metal></dd></div>
+        <div><dt>Change</dt><dd data-metal-confirm-change></dd></div>
+      </dl>
+      <div class="admin-metal-confirm-actions">
+        <button class="admin-ghost" type="submit" value="cancel" autofocus>Cancel</button>
+        <button class="admin-metal-confirm-submit" type="submit" value="confirm" data-metal-confirm-submit>
+          <i class="fas fa-arrow-up" aria-hidden="true"></i><span>Confirm increase</span>
+        </button>
+      </div>
+    </form>
+  `;
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close('cancel');
+  });
+  document.body.appendChild(dialog);
+  return dialog;
+}
+
+function confirmMetalPriceAdjustment({ category, metal, direction, percentage }) {
+  const dialog = getMetalPriceConfirmationDialog();
+  const isDecrease = direction === 'decrease';
+  const verb = isDecrease ? 'Decrease' : 'Increase';
+  const icon = dialog.querySelector('[data-metal-confirm-icon] i');
+  const submit = dialog.querySelector('[data-metal-confirm-submit]');
+
+  dialog.classList.toggle('is-decrease', isDecrease);
+  dialog.querySelector('[data-metal-confirm-title]').textContent = `${verb} ${metal} prices by ${percentage}%?`;
+  dialog.querySelector('[data-metal-confirm-message]').textContent = `Every matching product will be recalculated once from its latest saved price.`;
+  dialog.querySelector('[data-metal-confirm-category]').textContent = category;
+  dialog.querySelector('[data-metal-confirm-metal]').textContent = metal;
+  dialog.querySelector('[data-metal-confirm-change]').textContent = `${isDecrease ? '-' : '+'}${percentage}%`;
+  icon.className = `fas fa-arrow-${isDecrease ? 'down' : 'up'}`;
+  submit.querySelector('i').className = icon.className;
+  submit.querySelector('span').textContent = `Confirm ${direction}`;
+
+  dialog.returnValue = '';
+  dialog.showModal();
+  return new Promise((resolve) => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), { once: true });
+  });
+}
+
+async function submitMetalPriceAdjustment(button) {
   const adjustment = button.closest('[data-metal-price-adjustment]');
   const item = button.closest('.admin-repeater-item');
   const profileForm = button.closest('form');
@@ -195,13 +257,13 @@ function submitMetalPriceAdjustment(button) {
     return;
   }
 
-  const verb = direction === 'decrease' ? 'Decrease' : 'Increase';
-  const confirmed = window.confirm(`${verb} every ${metal} product price in ${category} by ${percentage}%? This uses the current saved prices.`);
+  const confirmed = await confirmMetalPriceAdjustment({ category, metal, direction, percentage });
   if (!confirmed) return;
 
   const submitForm = document.createElement('form');
   submitForm.method = 'post';
-  submitForm.action = profileForm.action;
+  const actionAttribute = profileForm.getAttribute('action');
+  submitForm.action = actionAttribute ? new URL(actionAttribute, window.location.href).href : window.location.href;
   submitForm.hidden = true;
 
   const fields = {
