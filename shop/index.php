@@ -169,6 +169,19 @@ if ($filters['type'] === 'Ring') {
     }
 }
 
+$diamondShapeOptions = available_diamond_shapes();
+if ($filters['shape'] !== '') {
+    $requestedShape = strtolower(trim($filters['shape']));
+    $matchedShape = '';
+    foreach ($diamondShapeOptions as $shapeKey => $shapeLabel) {
+        if ($requestedShape === strtolower($shapeKey) || $requestedShape === strtolower($shapeLabel)) {
+            $matchedShape = $shapeKey;
+            break;
+        }
+    }
+    $filters['shape'] = $matchedShape;
+}
+
 $catalogFilters = $filters;
 $catalogFilters['type'] = '';
 $catalogFilters['facet'] = '';
@@ -319,14 +332,18 @@ foreach ($sectionProductsForMetals as $sectionProduct) {
 $productColors = array_keys($productColorSet);
 sort($productColors);
 
-// Apply the selected metal now that the option list is built. A product matches
-// when the chosen metal is one it is available in (same resolution as above).
-// The product's base colour is also accepted so existing metal links that carry
-// the base colour — e.g. the navigation "Shop by Metal" chips — keep returning
-// results instead of an empty page.
+// Apply the selected metal now that the option list is built. Expanded cards
+// represent one exact metal, so they match only that variant. Non-expanded
+// products still match against their real option list.
 if ($filters['color'] !== '') {
     $requestedMetal = $filters['color'];
     $filteredProducts = array_values(array_filter($filteredProducts, static function (array $product) use ($requestedMetal, $productMetalLabels, &$metalLabelMemo): bool {
+        $variantMetal = clean_string((string) ($product['url_metal_param'] ?? ''), 80);
+        if ($variantMetal !== '') {
+            return strcasecmp((string) ($product['color'] ?? ''), $requestedMetal) === 0
+                || content_slug($variantMetal, 'metal') === content_slug($requestedMetal, 'metal');
+        }
+
         $productId = (string) ($product['id'] ?? '');
         $labels = $metalLabelMemo[$productId] ?? ($metalLabelMemo[$productId] = $productMetalLabels($product));
         foreach ($labels as $label) {
@@ -335,6 +352,19 @@ if ($filters['color'] !== '') {
             }
         }
         return strcasecmp((string) ($product['color'] ?? ''), $requestedMetal) === 0;
+    }));
+
+    $seenMetalProducts = [];
+    $filteredProducts = array_values(array_filter($filteredProducts, static function (array $product) use (&$seenMetalProducts): bool {
+        $productKey = (string) ($product['original_id'] ?? $product['id'] ?? '');
+        if ($productKey === '') {
+            return true;
+        }
+        if (isset($seenMetalProducts[$productKey])) {
+            return false;
+        }
+        $seenMetalProducts[$productKey] = true;
+        return true;
     }));
 }
 
@@ -450,7 +480,7 @@ $activeFilterPills = array_filter([
     $filters['gender'] !== '' ? ['label' => 'For', 'value' => $filters['gender'] === 'mens' ? "Men's" : "Women's", 'clear' => $buildShopUrl(['gender' => ''])] : null,
     $filters['color'] !== '' ? ['label' => 'Metal', 'value' => $filters['color'], 'clear' => $buildShopUrl(['color' => ''])] : null,
     $filters['category'] !== '' ? ['label' => 'Collection', 'value' => $filters['category'], 'clear' => $buildShopUrl(['category' => ''])] : null,
-    $filters['shape'] !== '' ? ['label' => 'Shape', 'value' => $filters['shape'], 'clear' => $buildShopUrl(['shape' => ''])] : null,
+    $filters['shape'] !== '' ? ['label' => 'Shape', 'value' => $diamondShapeOptions[$filters['shape']] ?? $filters['shape'], 'clear' => $buildShopUrl(['shape' => ''])] : null,
     $filters['style'] !== '' ? ['label' => 'Style', 'value' => $ringStyles[$filters['style']] ?? $filters['style'], 'clear' => $buildShopUrl(['style' => ''])] : null,
     $filters['facet'] !== '' && isset($selectorItems[$filters['facet']]) ? ['label' => 'Edit', 'value' => $selectorItems[$filters['facet']]['label'], 'clear' => $buildShopUrl(['facet' => ''])] : null,
     $filters['price'] !== '' && isset($allPriceBuckets[$filters['price']]) ? ['label' => 'Price', 'value' => $allPriceBuckets[$filters['price']]['label'], 'clear' => $buildShopUrl(['price' => ''])] : null,
@@ -1425,7 +1455,7 @@ if ($showRingJourney) {
         ];
     }
 }
-$slShapeOptions = $showRingJourney ? available_diamond_shapes() : [];
+$slShapeOptions = $showRingJourney ? $diamondShapeOptions : [];
 $slFlash = function_exists('site_flash_pull') ? site_flash_pull() : null;
 ?>
 
@@ -1546,7 +1576,7 @@ $slFlash = function_exists('site_flash_pull') ? site_flash_pull() : null;
     <?php else: ?>
       <div class="sl-grid">
         <?php foreach ($filteredProducts as $product): ?>
-          <?php render_shop_listing_card($product); ?>
+          <?php render_shop_listing_card($product, ['shape' => $filters['shape'], 'color' => $filters['color']]); ?>
         <?php endforeach; ?>
       </div>
     <?php endif; ?>

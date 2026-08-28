@@ -318,7 +318,7 @@ body.shop-page .sl-card-img--hover {
 }
 
 body.shop-page .sl-card:hover .sl-card-img--hover { opacity: 1; }
-body.shop-page .sl-card:hover .sl-card-img:not(.sl-card-img--hover) { opacity: 0; }
+body.shop-page .sl-card:hover .sl-card-link.has-hover-media .sl-card-img:not(.sl-card-img--hover) { opacity: 0; }
 
 body.shop-page .sl-card-badge {
   position: absolute;

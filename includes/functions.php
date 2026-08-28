@@ -1136,8 +1136,21 @@ function product_price_value(array $product): float
 function product_stored_diamond_shapes(array $product): array
 {
     $shapes = [];
+    $metalVariations = (array) ($product['metal_variations'] ?? []);
+    $variantMetal = clean_string((string) ($product['url_metal_param'] ?? ''), 80);
 
-    foreach ((array) ($product['metal_variations'] ?? []) as $variation) {
+    if ($variantMetal !== '') {
+        $scopedVariations = array_values(array_filter($metalVariations, static function (mixed $variation) use ($variantMetal): bool {
+            return is_array($variation)
+                && !empty($variation['active'])
+                && content_slug((string) ($variation['metal'] ?? ''), 'metal') === content_slug($variantMetal, 'metal');
+        }));
+        if ($scopedVariations !== []) {
+            $metalVariations = $scopedVariations;
+        }
+    }
+
+    foreach ($metalVariations as $variation) {
         if (!is_array($variation) || empty($variation['active']) || trim((string) ($variation['metal'] ?? '')) === '') {
             continue;
         }
@@ -1230,6 +1243,7 @@ function filter_catalog_products(array $products, array $filters): array
                 }
 
                 $shapeValues[] = $normalizedShape;
+                $shapeValues[] = content_slug($normalizedShape, 'shape');
                 if (isset($availableShapes[$normalizedShape])) {
                     $shapeValues[] = strtolower($availableShapes[$normalizedShape]);
                 }
@@ -1327,18 +1341,84 @@ function render_product_card(array $product, array $extraParams = []): void
  * a hover wishlist heart (real toggle that returns to the listing), metal swatch
  * dots, a hover image swap, and a "from £X" line.
  */
-function render_shop_listing_card(array $product): void
+function render_shop_listing_card(array $product, array $filterSelection = []): void
 {
     $defaultImage = clean_image((string) ($product['default_image'] ?? ''));
     $hoverImage = clean_image((string) ($product['hover_image'] ?? $product['default_image'] ?? ''));
-    $productUrl = product_url($product);
+    $cardOptions = function_exists('product_option_data') ? product_option_data($product) : [];
+    $productParams = [];
+    $selectedShape = strtolower(clean_string((string) ($filterSelection['shape'] ?? $filterSelection['diamond_shape'] ?? ''), 40));
+    if ($selectedShape !== '') {
+        $productParams['shape'] = $selectedShape;
+    }
+
+    $selectedMetalLabel = clean_string((string) ($filterSelection['color'] ?? ''), 120);
+    $selectedMetalValue = clean_string((string) ($product['url_metal_param'] ?? ''), 80);
+    if ($selectedMetalLabel !== '' && $selectedMetalValue === '') {
+        foreach ((array) ($cardOptions['metal_options'] ?? []) as $metalOption) {
+            $optionValue = clean_string((string) ($metalOption['value'] ?? ''), 80);
+            $optionLabel = clean_string((string) ($metalOption['label'] ?? ''), 120);
+            if ($optionValue !== '' && (strcasecmp($optionLabel, $selectedMetalLabel) === 0 || strcasecmp($optionValue, $selectedMetalLabel) === 0)) {
+                $selectedMetalValue = $optionValue;
+                $productParams['metal'] = $optionValue;
+                break;
+            }
+        }
+
+        if ($selectedMetalValue === '') {
+            foreach ((array) ($cardOptions['color_choices'] ?? []) as $colorChoice) {
+                $optionValue = clean_string((string) ($colorChoice['value'] ?? ''), 80);
+                $optionLabel = clean_string((string) ($colorChoice['label'] ?? ''), 120);
+                if ($optionValue !== '' && (strcasecmp($optionLabel, $selectedMetalLabel) === 0 || strcasecmp($optionValue, $selectedMetalLabel) === 0)) {
+                    $productParams['color'] = $optionValue;
+                    break;
+                }
+            }
+        }
+    }
+
+    if ($selectedShape !== '' && $selectedMetalValue !== '' && function_exists('product_metal_shape_galleries')) {
+        foreach ((array) ($product['metal_variations'] ?? []) as $metalVariation) {
+            if (!is_array($metalVariation) || empty($metalVariation['active'])) {
+                continue;
+            }
+            if (content_slug((string) ($metalVariation['metal'] ?? ''), 'metal') !== content_slug($selectedMetalValue, 'metal')) {
+                continue;
+            }
+
+            $shapeGalleries = product_metal_shape_galleries($metalVariation);
+            $shapeGallery = $shapeGalleries[$selectedShape] ?? [];
+            if ($shapeGallery !== []) {
+                $defaultImage = clean_image((string) ($shapeGallery[0] ?? ''));
+                $hoverImage = clean_image((string) ($shapeGallery[1] ?? $defaultImage));
+            }
+            break;
+        }
+    }
+
+    $productUrl = product_url($product, $productParams);
     $customer = current_customer();
     $isWishlisted = customer_has_wishlist_product($customer, (string) ($product['id'] ?? ''));
     $listingReturn = current_internal_url('/shop/');
+    $inventorySelection = $selectedMetalValue !== ''
+        ? ['metal' => $selectedMetalValue]
+        : ['color' => (string) ($product['color'] ?? '')];
     $inventoryStatus = function_exists('product_inventory_status')
-        ? product_inventory_status($product, ['metal' => (string) ($product['color'] ?? '')])
+        ? product_inventory_status($product, $inventorySelection)
         : ['out_of_stock' => false];
     $cardIsOutOfStock = !empty($inventoryStatus['out_of_stock']);
+    $hasHoverMedia = $hoverImage !== '' && $hoverImage !== $defaultImage;
+
+    $renderListingMedia = static function (string $path, string $className, string $alt = ''): string {
+        $resolvedPath = clean_image($path);
+        if ($resolvedPath === '') {
+            return '';
+        }
+        if (media_asset_type($resolvedPath) === 'video') {
+            return '<video class="' . h($className) . '" src="' . h($resolvedPath) . '" muted autoplay loop playsinline preload="metadata" aria-hidden="true"></video>';
+        }
+        return '<img class="' . h($className) . '" src="' . h($resolvedPath) . '" alt="' . h($alt) . '" loading="lazy">';
+    };
 
     // Hover swatches mirror the purchase page exactly: the same set of metals /
     // colours that product renders, and the same colour each shows there. For a
@@ -1372,7 +1452,6 @@ function render_shop_listing_card(array $product): void
         return 'white';
     };
 
-    $cardOptions = function_exists('product_option_data') ? product_option_data($product) : [];
     $swatchItems = [];
     $pushSwatch = static function (string $label, string $hex, string $tone) use (&$swatchItems, $cardToneFor): void {
         if (!preg_match('/^#[0-9a-fA-F]{6}$/', $hex)) {
@@ -1419,9 +1498,9 @@ function render_shop_listing_card(array $product): void
             <i class="<?= $isWishlisted ? 'fas' : 'far' ?> fa-heart"></i>
           </button>
         </form>
-        <a href="<?= h($productUrl) ?>" class="sl-card-link" aria-label="<?= h('View ' . ($product['name'] ?? 'product')) ?>">
-          <?php if ($defaultImage !== ''): ?><img class="sl-card-img" src="<?= h($defaultImage) ?>" alt="<?= h((string) ($product['name'] ?? 'Product')) ?>" loading="lazy"><?php endif; ?>
-          <?php if ($hoverImage !== '' && $hoverImage !== $defaultImage): ?><img class="sl-card-img sl-card-img--hover" src="<?= h($hoverImage) ?>" alt="" loading="lazy" aria-hidden="true"><?php endif; ?>
+        <a href="<?= h($productUrl) ?>" class="sl-card-link <?= $hasHoverMedia ? 'has-hover-media' : '' ?>" aria-label="<?= h('View ' . ($product['name'] ?? 'product')) ?>">
+          <?= $renderListingMedia($defaultImage, 'sl-card-img', (string) ($product['name'] ?? 'Product')) ?>
+          <?php if ($hasHoverMedia): ?><?= $renderListingMedia($hoverImage, 'sl-card-img sl-card-img--hover') ?><?php endif; ?>
         </a>
         <?php if ($swatchItems !== []): ?>
         <div class="sl-card-swatches" aria-hidden="true">
