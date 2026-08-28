@@ -110,6 +110,14 @@ function removeRetiredAttributeControls(scope = document) {
 const attributeDraftTimers = new Map();
 const submittingAttributeForms = new WeakSet();
 
+function resetMetalPriceAdjustmentButtons(scope = document) {
+  scope.querySelectorAll('[data-metal-price-adjustment-button]').forEach((button) => {
+    button.disabled = false;
+    button.removeAttribute('disabled');
+    button.removeAttribute('aria-busy');
+  });
+}
+
 function snapshotEditorMarkup(editor) {
   const clone = editor.cloneNode(true);
   const sourceControls = editor.querySelectorAll('input, textarea, select');
@@ -154,6 +162,8 @@ function snapshotEditorMarkup(editor) {
       }
     }
   });
+
+  resetMetalPriceAdjustmentButtons(clone);
 
   return clone.innerHTML;
 }
@@ -286,7 +296,17 @@ async function submitMetalPriceAdjustment(button) {
 
   percentageInput.value = '';
   saveAttributeDraft(profileForm);
-  button.disabled = true;
+  submittingAttributeForms.add(profileForm);
+  const draftKey = attributeDraftKey(profileForm);
+  const draftTimer = attributeDraftTimers.get(draftKey);
+  if (draftTimer) {
+    window.clearTimeout(draftTimer);
+    attributeDraftTimers.delete(draftKey);
+  }
+  adjustment.querySelectorAll('[data-metal-price-adjustment-button]').forEach((actionButton) => {
+    actionButton.disabled = true;
+    actionButton.setAttribute('aria-busy', 'true');
+  });
   document.body.appendChild(submitForm);
   submitForm.submit();
 }
@@ -322,6 +342,7 @@ function restoreAttributeDrafts(scope = document) {
       editor.innerHTML = saved;
     }
 
+    resetMetalPriceAdjustmentButtons(form);
     removeRetiredAttributeControls(form);
     syncProductEditorScopes(form);
 
@@ -1055,6 +1076,7 @@ document.addEventListener('selectionchange', () => {
 // the parse-time pass, so a restored Category would otherwise leave the form
 // showing the "choose a category" state while a category is visibly selected.
 function syncAdminProductEditors() {
+  resetMetalPriceAdjustmentButtons();
   syncCouponFields();
   syncCategoryToProductType();
   syncProductEditorScopes();
@@ -1070,7 +1092,12 @@ initRichTextFields();
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', syncAdminProductEditors);
 }
-window.addEventListener('pageshow', syncAdminProductEditors);
+window.addEventListener('pageshow', () => {
+  document.querySelectorAll('#attribute-profile form, #attribute-editor form').forEach((form) => {
+    submittingAttributeForms.delete(form);
+  });
+  syncAdminProductEditors();
+});
 
 function syncAdminAnchorNav() {
   const nav = document.querySelector('.admin-anchor-nav');
