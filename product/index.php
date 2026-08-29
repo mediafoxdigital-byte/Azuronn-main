@@ -238,8 +238,13 @@ $optionToneFor = static function (string $label): string {
     };
 };
 $selectedMetalLabel = '';
+$selectedMetalOption = null;
 foreach ((array) $metaMetalOptions as $mo) {
-    if ((string) ($mo['value'] ?? '') === (string) ($selectedVariant['metal'] ?? '')) { $selectedMetalLabel = (string) ($mo['label'] ?? ''); break; }
+    if ((string) ($mo['value'] ?? '') === (string) ($selectedVariant['metal'] ?? '')) {
+        $selectedMetalLabel = (string) ($mo['label'] ?? '');
+        $selectedMetalOption = $mo;
+        break;
+    }
 }
 $selectedBandLabel = '';
 foreach ($selectedMetalBandOptions as $bo) {
@@ -267,6 +272,31 @@ foreach ((array) ($options['color_choices'] ?? []) as $cc) {
 $selectedDeliveryLabel = '';
 foreach ((array) ($options['delivery_options'] ?? []) as $do) {
     if ((string) ($do['value'] ?? '') === (string) ($selectedVariant['delivery_option'] ?? '')) { $selectedDeliveryLabel = (string) ($do['label'] ?? ''); break; }
+}
+
+$selectedMetalBasePrice = $selectedMetalOption !== null
+    ? max(0, (float) ($selectedMetalOption['base_price'] ?? 0))
+    : product_price_value($product);
+$selectedDisplayPriceValue = $isMatrixProduct
+    ? product_selection_total_price($product, $selectedVariant)
+    : product_price_value($product);
+if ($selectedDisplayPriceValue <= 0) {
+    $selectedDisplayPriceValue = product_price_value($product);
+}
+$selectedDisplayPrice = money_format($selectedDisplayPriceValue);
+$selectedMetalOldPriceValue = $selectedMetalOption !== null
+    ? money_value((string) ($selectedMetalOption['old_price'] ?? ''))
+    : money_value((string) ($product['old_price'] ?? ''));
+$selectedDisplayOldPriceValue = 0.0;
+if ($selectedMetalOldPriceValue > $selectedMetalBasePrice) {
+    $selectedDisplayOldPriceValue = $selectedMetalOldPriceValue + max(0, $selectedDisplayPriceValue - $selectedMetalBasePrice);
+}
+$selectedDisplayOldPrice = $selectedDisplayOldPriceValue > $selectedDisplayPriceValue
+    ? money_format($selectedDisplayOldPriceValue)
+    : '';
+$selectedMetalDescription = clean_multiline((string) ($selectedMetalOption['metal_desc'] ?? ''), 1000);
+if ($selectedMetalDescription === '') {
+    $selectedMetalDescription = (string) ($product['description'] ?? '');
 }
 ?>
 <?php if ($isEngagementRing): ?>
@@ -367,8 +397,8 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
 
         <div class="pp-head-row">
           <div class="pp-price-top">
-            <?php if (($product['old_price'] ?? '') !== ''): ?><span class="pp-price-old"><?= h((string) $product['old_price']) ?></span><?php endif; ?>
-            <span class="pp-price-base"><?= h((string) ($product['new_price'] ?? '')) ?></span>
+            <span class="pp-price-old" id="live-product-old-price" data-original-price="<?= h((string) ($product['old_price'] ?? '')) ?>"<?= $selectedDisplayOldPrice === '' ? ' hidden' : '' ?>><?= h($selectedDisplayOldPrice) ?></span>
+            <span class="pp-price-base" id="live-product-price-top" data-original-price="<?= h((string) ($product['new_price'] ?? '')) ?>"><?= h($selectedDisplayPrice) ?></span>
             <span class="pp-price-note">Incl. taxes</span>
           </div>
           <form method="post" action="<?= h(product_url($product)) ?>" class="product-wishlist-form">
@@ -381,8 +411,7 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
           </form>
         </div>
 
-        <?php $displayDesc = !empty($options['metal_description']) ? $options['metal_description'] : $product['description']; ?>
-        <p class="pp-desc" id="live-product-desc" data-base-desc="<?= h((string) $product['description']) ?>"><?= h((string) $displayDesc) ?></p>
+        <p class="pp-desc" id="live-product-desc" data-base-desc="<?= h((string) $product['description']) ?>"><?= h($selectedMetalDescription) ?></p>
 
         <?php if ($pageFlash !== null): ?>
           <div class="store-flash <?= h($pageFlash['type']) ?> pp-flash"><?= h($pageFlash['message']) ?></div>
@@ -485,7 +514,7 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
                 })($metal, $options), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>
                 <?php $metalColorHex = !empty($metal['color_hex']) ? (string) $metal['color_hex'] : ''; ?>
                 <label class="option-card pp-metal tone-<?= h($metalTone) ?>">
-                  <input type="radio" name="metal" value="<?= h((string) $metal['value']) ?>" data-echo-label="<?= h((string) ($metal['label'] ?? '')) ?>" data-base-price="<?= h((string) ($metal['base_price'] ?? 0)) ?>" data-shapes="<?= h(implode(',', (array)($metal['shapes'] ?? []))) ?>" data-sizes="<?= h(implode(',', (array)($metal['sizes'] ?? []))) ?>" data-bands="<?= h(implode(',', (array)($metal['bands'] ?? []))) ?>" data-band-options="<?= h($metalBandOptionsJson) ?>" data-addon-groups="<?= h($metalAddonOptionsJson) ?>" data-desc="<?= h((string) ($metal['metal_desc'] ?? '')) ?>" data-gallery="<?= h($metalGalleryJson) ?>" data-shape-galleries="<?= h($metalShapeGalleriesJson) ?>" data-features="<?= h($metalFeaturesJson) ?>" data-inventory-tracked="<?= !empty($metal['inventory_tracked']) ? '1' : '0' ?>" data-inventory-quantity="<?= h((string) clean_int($metal['inventory_quantity'] ?? 0, 0, 1000000)) ?>" <?= $selectedVariant['metal'] === (string) $metal['value'] ? 'checked' : '' ?>>
+                  <input type="radio" name="metal" value="<?= h((string) $metal['value']) ?>" data-echo-label="<?= h((string) ($metal['label'] ?? '')) ?>" data-base-price="<?= h((string) ($metal['base_price'] ?? 0)) ?>" data-old-price="<?= h((string) ($metal['old_price'] ?? '')) ?>" data-shapes="<?= h(implode(',', (array)($metal['shapes'] ?? []))) ?>" data-sizes="<?= h(implode(',', (array)($metal['sizes'] ?? []))) ?>" data-bands="<?= h(implode(',', (array)($metal['bands'] ?? []))) ?>" data-band-options="<?= h($metalBandOptionsJson) ?>" data-addon-groups="<?= h($metalAddonOptionsJson) ?>" data-desc="<?= h((string) ($metal['metal_desc'] ?? '')) ?>" data-gallery="<?= h($metalGalleryJson) ?>" data-shape-galleries="<?= h($metalShapeGalleriesJson) ?>" data-features="<?= h($metalFeaturesJson) ?>" data-inventory-tracked="<?= !empty($metal['inventory_tracked']) ? '1' : '0' ?>" data-inventory-quantity="<?= h((string) clean_int($metal['inventory_quantity'] ?? 0, 0, 1000000)) ?>" <?= $selectedVariant['metal'] === (string) $metal['value'] ? 'checked' : '' ?>>
                   <span class="pp-metal-orb"<?= $metalColorHex !== '' ? ' style="background: ' . h($metalColorHex) . ';"' : '' ?>></span>
                   <span class="pp-metal-name"><?= h((string) ($metal['label'] ?? '')) ?></span>
                 </label>
@@ -590,7 +619,7 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
           <?php endif; ?>
 
           <div class="pp-summary">
-            <div class="pp-summary-row"><span>Total</span><strong id="live-product-price" data-original-price="<?= h((string) ($product['new_price'] ?? '')) ?>"><?= h((string) ($product['new_price'] ?? '')) ?></strong></div>
+            <div class="pp-summary-row"><span>Total</span><strong id="live-product-price" data-original-price="<?= h((string) ($product['new_price'] ?? '')) ?>"><?= h($selectedDisplayPrice) ?></strong></div>
             <div class="pp-summary-row pp-summary-sub"><span>Delivery</span><strong id="live-product-delivery"><?= h($selectedDeliveryMeta) ?></strong></div>
             <div class="pp-cta">
               <?php if ($isEngagementRing): ?>
@@ -661,7 +690,7 @@ foreach ((array) ($options['delivery_options'] ?? []) as $do) {
   <div class="pp-sticky-inner">
     <div class="pp-sticky-info">
       <span class="pp-sticky-name"><?= h((string) ($product['name'] ?? '')) ?></span>
-      <span class="pp-sticky-total"><span class="pp-sticky-total-label">Total</span> <strong id="pp-sticky-price"><?= h((string) ($product['new_price'] ?? '')) ?></strong></span>
+      <span class="pp-sticky-total"><span class="pp-sticky-total-label">Total</span> <strong id="pp-sticky-price"><?= h($selectedDisplayPrice) ?></strong></span>
     </div>
     <button type="button" class="pp-btn-primary pp-sticky-btn"<?= $selectedIsOutOfStock ? ' disabled aria-disabled="true"' : '' ?>><?= h($stickyBtnLabel) ?></button>
   </div>
@@ -741,6 +770,8 @@ document.addEventListener('DOMContentLoaded', function () {
 document.addEventListener('DOMContentLoaded', () => {
     const livePriceEl = document.getElementById('live-product-price');
     if (!livePriceEl) return;
+    const topPriceEl = document.getElementById('live-product-price-top');
+    const topOldPriceEl = document.getElementById('live-product-old-price');
     
     const metalInputs = document.querySelectorAll('input[name="metal"]');
     const bandInputs = document.querySelectorAll('input[name="band_claw_metal"]');
@@ -766,18 +797,40 @@ document.addEventListener('DOMContentLoaded', () => {
             return [];
         }
     })();
+
+    const parseMoney = (value) => Number.parseFloat(String(value || '').replace(/[^0-9.]/g, '')) || 0;
+    const formatMoney = (value) => '£' + Math.max(0, value).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    const syncDisplayedPrices = (total, basePrice, compareAtPrice = 0) => {
+        const safeTotal = Math.max(0, Number(total) || 0);
+        const safeBase = Math.max(0, Number(basePrice) || 0);
+        const formattedTotal = safeTotal > 0 ? formatMoney(safeTotal) : livePriceEl.dataset.originalPrice;
+        livePriceEl.textContent = formattedTotal;
+        if (topPriceEl) topPriceEl.textContent = formattedTotal;
+
+        if (!topOldPriceEl) return;
+        const safeCompareAt = Math.max(0, Number(compareAtPrice) || 0);
+        const compareTotal = safeCompareAt > safeBase
+            ? safeCompareAt + Math.max(0, safeTotal - safeBase)
+            : 0;
+        if (compareTotal > safeTotal) {
+            topOldPriceEl.textContent = formatMoney(compareTotal);
+            topOldPriceEl.hidden = false;
+        } else {
+            topOldPriceEl.textContent = '';
+            topOldPriceEl.hidden = true;
+        }
+    };
     
     // Products without metal variations skip the matrix logic below, but they
     // still offer delivery, so the total and the summary line need their own
     // wiring here.
     if (metalInputs.length === 0) {
-        const plainBase = Number.parseFloat(String(livePriceEl.dataset.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+        const plainBase = parseMoney(livePriceEl.dataset.originalPrice);
+        const plainCompareAt = parseMoney(topOldPriceEl?.dataset.originalPrice);
         const syncPlainDelivery = () => {
             const checked = document.querySelector('input[name="delivery_option"]:checked');
             const extra = checked ? Number.parseFloat(checked.dataset.surcharge || '0') || 0 : 0;
-            if (plainBase > 0) {
-                livePriceEl.textContent = '£' + (plainBase + Math.max(0, extra)).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-            }
+            syncDisplayedPrices(plainBase + Math.max(0, extra), plainBase, plainCompareAt);
             if (!metaDelivery) return;
             const card = checked?.closest('.option-card');
             const badge = card?.querySelector('.option-card-badge')?.textContent?.trim() || '';
@@ -1181,10 +1234,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const activeMetal = document.querySelector('input[name="metal"]:checked');
         const descEl = document.getElementById('live-product-desc');
+        let compareAtPrice = 0;
         if (activeMetal) {
             if (parseFloat(activeMetal.dataset.basePrice) > 0) {
                 basePrice = parseFloat(activeMetal.dataset.basePrice);
             }
+            compareAtPrice = parseMoney(activeMetal.dataset.oldPrice);
             if (activeMetal.dataset.shapes) {
                 allowedShapes = activeMetal.dataset.shapes.split(',');
             }
@@ -1197,7 +1252,8 @@ document.addEventListener('DOMContentLoaded', () => {
             inventoryTracked = activeMetal.dataset.inventoryTracked === '1';
             inventoryQuantity = Number.parseInt(activeMetal.dataset.inventoryQuantity || '0', 10) || 0;
             if (descEl) {
-                descEl.textContent = activeMetal.dataset.desc || descEl.dataset.baseDesc;
+                const metalDescription = String(activeMetal.dataset.desc || '').trim();
+                descEl.textContent = metalDescription !== '' ? metalDescription : descEl.dataset.baseDesc;
             }
             renderBandOptions(parseBandOptions(activeMetal.dataset.bandOptions), shouldResetBandSelection);
             renderAddonGroups(parseAddonGroups(activeMetal.dataset.addonGroups), shouldResetBandSelection);
@@ -1206,6 +1262,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // fallback to original string if no matrix price is set
             livePriceEl.textContent = livePriceEl.dataset.originalPrice;
+            if (topPriceEl) topPriceEl.textContent = topPriceEl.dataset.originalPrice || livePriceEl.dataset.originalPrice;
+            if (topOldPriceEl) {
+                const originalOldPrice = topOldPriceEl.dataset.originalPrice || '';
+                topOldPriceEl.textContent = originalOldPrice;
+                topOldPriceEl.hidden = originalOldPrice === '';
+            }
             if (descEl) {
                 descEl.textContent = descEl.dataset.baseDesc;
             }
@@ -1228,11 +1290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const total = basePrice + surcharge + addonSurchargeTotal() + deliverySurchargeTotal();
-        if (total > 0) {
-            livePriceEl.textContent = '£' + total.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-        } else {
-            livePriceEl.textContent = livePriceEl.dataset.originalPrice;
-        }
+        syncDisplayedPrices(total, basePrice, compareAtPrice);
         
         // Toggle shapes based on selected metal
         if (allowedShapes.length > 0 && shapeInputs.length > 0) {
@@ -1339,11 +1397,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const newTotal = basePrice + surcharge + addonSurchargeTotal() + deliverySurchargeTotal();
-            if (newTotal > 0) {
-                livePriceEl.textContent = '£' + newTotal.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-            } else {
-                livePriceEl.textContent = livePriceEl.dataset.originalPrice;
-            }
+            syncDisplayedPrices(newTotal, basePrice, compareAtPrice);
         }
 
         syncDeliveryMeta();
@@ -1362,7 +1416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     metalInputs.forEach((input) => input.addEventListener('change', () => updateLivePrice(true)));
     shapeInputs.forEach((input) => input.addEventListener('change', () => renderActiveSelectionGallery()));
-    deliveryInputs.forEach(i => i.addEventListener('change', syncDeliveryMeta));
+    deliveryInputs.forEach((input) => input.addEventListener('change', () => updateLivePrice(false)));
     document.addEventListener('change', (event) => {
         if (event.target instanceof HTMLInputElement && (event.target.name === 'band_claw_metal' || event.target.name.startsWith('addon['))) {
             updateLivePrice(false);
