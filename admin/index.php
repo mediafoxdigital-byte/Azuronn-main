@@ -52,6 +52,20 @@ function admin_pull_upload_notices(): array
     return is_array($list) ? array_values($list) : [];
 }
 
+function admin_json_response(array $payload, int $status = 200): never
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    echo $json !== false ? $json : '{"ok":false,"error":"Unable to encode response."}';
+    exit;
+}
+
 function admin_allowed_views(): array
 {
     // Homepage Content is intentionally hidden for now.
@@ -673,23 +687,14 @@ function admin_upload_error_label(int $code): string
     };
 }
 
-function admin_handle_image_upload(string $fieldName, string $current = ''): string
+function admin_store_uploaded_media(array $file, bool $registerMetadata = true): array
 {
-    if (!isset($_FILES[$fieldName]) || !is_array($_FILES[$fieldName])) {
-        return $current;
-    }
-
-    $file = $_FILES[$fieldName];
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-        return $current;
+        return ['ok' => false, 'error' => 'Choose an image or video to upload.'];
     }
 
     if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
-        // PHP rejected the file (most often: bigger than upload_max_filesize /
-        // post_max_size, which silently zeroes $_FILES). Report the real reason
-        // instead of pretending the save succeeded with no change.
-        admin_add_upload_notice(admin_upload_error_label((int) ($file['error'] ?? UPLOAD_ERR_OK)));
-        return $current;
+        return ['ok' => false, 'error' => admin_upload_error_label((int) ($file['error'] ?? UPLOAD_ERR_OK))];
     }
 
     $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -697,32 +702,29 @@ function admin_handle_image_upload(string $fieldName, string $current = ''): str
     $mediaTypeMap = admin_allowed_media_types();
     $mediaType = $mediaTypeMap[$mime] ?? null;
     if (!is_array($mediaType)) {
-        admin_add_upload_notice('That file type isn\'t supported here (use JPG, PNG, GIF, WebP, or MP4/WebM/MOV video).');
-        return $current;
+        return ['ok' => false, 'error' => 'That file type isn\'t supported here (use JPG, PNG, GIF, WebP, or MP4/WebM/MOV video).'];
     }
 
     // Size is checked against the cap for the detected type, so a video gets the
     // full video allowance rather than the smaller image one.
     $kind = (string) $mediaType['media_type'];
     if (($file['size'] ?? 0) > admin_upload_max_bytes($kind)) {
-        admin_add_upload_notice('This ' . $kind . ' is larger than the ' . admin_upload_max_label($kind) . ' this server accepts.');
-        return $current;
+        return ['ok' => false, 'error' => 'This ' . $kind . ' is larger than the ' . admin_upload_max_label($kind) . ' this server accepts.'];
     }
 
     $dir = admin_upload_dir_abs();
-    if (!is_dir($dir)) {
-        mkdir($dir, 0755, true);
+    if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+        return ['ok' => false, 'error' => 'The uploads folder could not be created.'];
     }
 
     $name = 'admin-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $mediaType['ext'];
     $destination = $dir . '/' . $name;
     if (!move_uploaded_file($file['tmp_name'], $destination)) {
-        admin_add_upload_notice('The uploaded file couldn\'t be saved to the server. Check the uploads folder is writable.');
-        return $current;
+        return ['ok' => false, 'error' => 'The uploaded file couldn\'t be saved to the server. Check the uploads folder is writable.'];
     }
 
     $publicUrl = admin_upload_dir_web() . '/' . $name;
-    if (supabase_enabled()) {
+    if ($registerMetadata && supabase_enabled()) {
         admin_queue_media_asset([
             'public_url' => $publicUrl,
             'file_path' => $destination,
@@ -734,7 +736,32 @@ function admin_handle_image_upload(string $fieldName, string $current = ''): str
         ]);
     }
 
-    return $publicUrl;
+    return [
+        'ok' => true,
+        'url' => $publicUrl,
+        'media_type' => $kind,
+        'file_size' => (int) ($file['size'] ?? 0),
+    ];
+}
+
+function admin_handle_image_upload(string $fieldName, string $current = ''): string
+{
+    if (!isset($_FILES[$fieldName]) || !is_array($_FILES[$fieldName])) {
+        return $current;
+    }
+
+    $file = $_FILES[$fieldName];
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return $current;
+    }
+
+    $result = admin_store_uploaded_media($file);
+    if (empty($result['ok'])) {
+        admin_add_upload_notice((string) ($result['error'] ?? 'The upload failed. Please try again.'));
+        return $current;
+    }
+
+    return (string) ($result['url'] ?? $current);
 }
 
 function admin_select_image_or_url(string $urlField, string $fileField, string $current = ''): string
@@ -3431,6 +3458,9 @@ function admin_request_detail_value(array $payload, string $side): mixed
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $isDiamondMediaUpload = (string) ($_GET['diamond_media_upload'] ?? '') === '1';
+    $action = sanitize_text((string) ($_POST['action'] ?? ''));
+
     // A body larger than post_max_size makes PHP discard $_POST and $_FILES
     // entirely — including the CSRF token. Without this check that surfaces as
     // a bogus "security token is invalid" instead of the real cause, so detect
@@ -3438,16 +3468,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $postMax = admin_ini_bytes((string) ini_get('post_max_size'));
     $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
     if ($postMax > 0 && $contentLength > $postMax && $_POST === []) {
+        if ($isDiamondMediaUpload) {
+            admin_json_response(['ok' => false, 'error' => 'That file is larger than the server accepts. Use a smaller image or video.'], 413);
+        }
         admin_set_flash('error', 'That upload was too large for the server to accept (the whole form must stay under ' . admin_upload_max_label('video') . '). Nothing was saved — use a smaller file or paste a URL.');
         redirect(admin_entry_url());
     }
 
     if (!csrf_verify()) {
+        if ($isDiamondMediaUpload) {
+            admin_json_response(['ok' => false, 'error' => 'Your admin session expired. Refresh the page and try again.'], 403);
+        }
         admin_set_flash('error', 'The security token is invalid. Refresh and try again.');
         redirect(admin_entry_url());
     }
-
-    $action = sanitize_text((string) ($_POST['action'] ?? ''));
 
     if ($action === 'login') {
         if (admin_is_locked()) {
@@ -3474,8 +3508,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     if (!admin_is_authenticated()) {
+        if ($isDiamondMediaUpload) {
+            admin_json_response(['ok' => false, 'error' => 'Your admin session expired. Sign in again and retry the upload.'], 401);
+        }
         admin_set_flash('error', 'Please sign in again.');
         redirect(admin_entry_url());
+    }
+
+    if ($isDiamondMediaUpload) {
+        if ($action !== 'upload-diamond-media') {
+            admin_json_response(['ok' => false, 'error' => 'Invalid media upload request.'], 400);
+        }
+
+        // PHP sessions are file-locked by default. Release the lock before
+        // moving the upload so the six diamond media slots can upload in
+        // parallel instead of waiting for each previous request to finish.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        $file = is_array($_FILES['media'] ?? null) ? $_FILES['media'] : [];
+        $result = admin_store_uploaded_media($file, false);
+        admin_json_response($result, !empty($result['ok']) ? 200 : 422);
     }
 
     $returnView = sanitize_text((string) ($_POST['return_view'] ?? 'dashboard'));
@@ -5537,16 +5590,19 @@ if (isset($_GET['download']) && $_GET['download'] === 'newsletter-subscribers' &
                                       <div class="admin-shape-media-slot" data-shape-media-slot>
                                         <div class="admin-shape-media-preview" data-shape-media-preview>
                                           <?php if ($currentShapeMedia !== '' && media_asset_type($currentShapeMedia) === 'video'): ?>
-                                            <video src="<?= admin_html($currentShapeMedia) ?>" muted playsinline preload="metadata"></video>
+                                            <video src="<?= admin_html($currentShapeMedia) ?>" muted playsinline preload="metadata" controls></video>
                                           <?php elseif ($currentShapeMedia !== ''): ?>
                                             <img src="<?= admin_html($currentShapeMedia) ?>" alt="">
                                           <?php else: ?>
                                             <i class="far fa-image" aria-hidden="true"></i>
                                           <?php endif; ?>
                                         </div>
+                                        <div class="admin-shape-media-progress" data-shape-media-progress hidden>
+                                          <span data-shape-media-progress-bar></span>
+                                        </div>
                                         <div class="admin-shape-media-slot-head">
                                           <span><?= admin_html($slotLabel) ?></span>
-                                          <small>Image / video</small>
+                                          <small data-shape-media-status aria-live="polite">Image / video</small>
                                         </div>
                                         <input type="hidden" name="<?= admin_html($fieldPrefix) ?>_url" value="<?= admin_html($currentShapeMedia) ?>" data-shape-media-current>
                                         <div class="admin-shape-media-slot-actions">

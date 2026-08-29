@@ -109,6 +109,8 @@ function removeRetiredAttributeControls(scope = document) {
 
 const attributeDraftTimers = new Map();
 const submittingAttributeForms = new WeakSet();
+const shapeMediaUploads = new WeakMap();
+let shapeMediaUploadSequence = 0;
 
 function resetMetalPriceAdjustmentButtons(scope = document) {
   scope.querySelectorAll('[data-metal-price-adjustment-button]').forEach((button) => {
@@ -116,6 +118,169 @@ function resetMetalPriceAdjustmentButtons(scope = document) {
     button.removeAttribute('disabled');
     button.removeAttribute('aria-busy');
   });
+}
+
+function setShapeMediaUploadState(slot, state = 'idle', label = 'Image / video', progress = 0) {
+  if (!slot) return;
+  const status = slot.querySelector('[data-shape-media-status]');
+  const progressTrack = slot.querySelector('[data-shape-media-progress]');
+  const progressBar = slot.querySelector('[data-shape-media-progress-bar]');
+  const uploading = state === 'optimizing' || state === 'uploading';
+
+  slot.classList.toggle('is-uploading', uploading);
+  slot.classList.toggle('has-upload-error', state === 'error');
+  if (status) status.textContent = label;
+  if (progressTrack) progressTrack.hidden = !uploading;
+  if (progressBar) progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+}
+
+function cancelShapeMediaUpload(slot) {
+  if (!slot) return;
+  const state = shapeMediaUploads.get(slot);
+  slot.dataset.shapeMediaUploadSequence = String(++shapeMediaUploadSequence);
+  if (state?.xhr && state.xhr.readyState !== XMLHttpRequest.DONE) {
+    state.xhr.abort();
+  }
+  shapeMediaUploads.delete(slot);
+  setShapeMediaUploadState(slot);
+}
+
+function diamondMediaUploadUrl(form) {
+  const url = new URL(form?.getAttribute('action') || window.location.href, window.location.href);
+  url.searchParams.set('diamond_media_upload', '1');
+  return url.href;
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+}
+
+async function optimizeDiamondImage(file) {
+  const result = { blob: file, name: file.name || 'diamond-image' };
+  if (!file.type.startsWith('image/') || file.type === 'image/gif' || typeof createImageBitmap !== 'function') {
+    return result;
+  }
+
+  let bitmap;
+  try {
+    try {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch (_optionError) {
+      bitmap = await createImageBitmap(file);
+    }
+
+    const maxDimension = 2200;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size <= 900 * 1024) return result;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return result;
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const optimized = await canvasToBlob(canvas, 'image/webp', 0.86);
+    if (!optimized || (scale === 1 && optimized.size >= file.size)) return result;
+
+    const baseName = (file.name || 'diamond-image').replace(/\.[^.]+$/, '');
+    return { blob: optimized, name: `${baseName}.webp` };
+  } catch (_error) {
+    return result;
+  } finally {
+    if (bitmap && typeof bitmap.close === 'function') bitmap.close();
+  }
+}
+
+function sendDiamondMediaUpload(form, prepared, state, onProgress) {
+  return new Promise((resolve, reject) => {
+    const csrf = form?.querySelector('input[name="csrf_token"]')?.value || '';
+    if (!form || csrf === '') {
+      reject(new Error('Your admin session expired. Refresh the page and try again.'));
+      return;
+    }
+
+    const data = new FormData();
+    data.append('csrf_token', csrf);
+    data.append('action', 'upload-diamond-media');
+    data.append('media', prepared.blob, prepared.name);
+
+    const xhr = new XMLHttpRequest();
+    state.xhr = xhr;
+    xhr.open('POST', diamondMediaUploadUrl(form), true);
+    xhr.responseType = 'json';
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    });
+    xhr.addEventListener('load', () => {
+      let payload = xhr.response;
+      if (!payload || typeof payload !== 'object') {
+        try {
+          payload = JSON.parse(xhr.responseText || '{}');
+        } catch (_error) {
+          payload = {};
+        }
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && payload.ok && payload.url) {
+        resolve(payload);
+        return;
+      }
+      reject(new Error(payload.error || 'The background upload failed. It will retry when you save.'));
+    });
+    xhr.addEventListener('error', () => reject(new Error('The background upload failed. It will retry when you save.')));
+    xhr.addEventListener('abort', () => reject(new DOMException('Upload cancelled.', 'AbortError')));
+    xhr.send(data);
+  });
+}
+
+function uploadShapeMediaFile(fileInput) {
+  const slot = fileInput?.closest('[data-shape-media-slot]');
+  const file = fileInput?.files?.[0] || null;
+  const form = fileInput?.closest('form');
+  if (!slot || !file || !form) return;
+
+  cancelShapeMediaUpload(slot);
+  const sequence = ++shapeMediaUploadSequence;
+  slot.dataset.shapeMediaUploadSequence = String(sequence);
+  const state = { status: 'pending', xhr: null, promise: null };
+  shapeMediaUploads.set(slot, state);
+
+  const uploadLabel = slot.querySelector('[data-shape-media-upload-label]');
+  if (uploadLabel) uploadLabel.textContent = 'Uploading';
+  setShapeMediaUploadState(slot, 'optimizing', file.type.startsWith('image/') ? 'Optimizing...' : 'Starting...', 5);
+
+  state.promise = (async () => {
+    const prepared = await optimizeDiamondImage(file);
+    if (slot.dataset.shapeMediaUploadSequence !== String(sequence)) return;
+
+    state.status = 'uploading';
+    setShapeMediaUploadState(slot, 'uploading', 'Uploading 0%', 0);
+    const payload = await sendDiamondMediaUpload(form, prepared, state, (progress) => {
+      if (slot.dataset.shapeMediaUploadSequence === String(sequence)) {
+        setShapeMediaUploadState(slot, 'uploading', `Uploading ${progress}%`, progress);
+      }
+    });
+    if (slot.dataset.shapeMediaUploadSequence !== String(sequence)) return;
+
+    const currentInput = slot.querySelector('[data-shape-media-current]');
+    if (currentInput) currentInput.value = payload.url;
+    fileInput.value = '';
+    state.status = 'complete';
+    syncShapeMediaSlot(slot);
+    setShapeMediaUploadState(slot, 'complete', 'Ready', 100);
+  })().catch((error) => {
+    if (slot.dataset.shapeMediaUploadSequence !== String(sequence) || error?.name === 'AbortError') return;
+    state.status = 'error';
+    setShapeMediaUploadState(slot, 'error', 'Retries on Save', 0);
+    if (uploadLabel) uploadLabel.textContent = 'Retry';
+    console.error('Diamond media upload failed:', error);
+  });
+}
+
+function pendingShapeMediaUploads(form) {
+  return Array.from(form.querySelectorAll('[data-shape-media-slot]'))
+    .map((slot) => shapeMediaUploads.get(slot))
+    .filter((state) => state?.status === 'pending' || state?.status === 'uploading');
 }
 
 function adminMediaPreviewType(source, file = null) {
@@ -227,6 +392,7 @@ document.addEventListener('change', (event) => {
       const panel = Array.from(picker.querySelectorAll('[data-shape-media-panel]'))
         .find((item) => item.dataset.shapeMediaPanel === shape);
       panel?.querySelectorAll('[data-shape-media-file]').forEach((input) => {
+        cancelShapeMediaUpload(input.closest('[data-shape-media-slot]'));
         input.value = '';
         syncShapeMediaSlot(input.closest('[data-shape-media-slot]'));
       });
@@ -236,7 +402,11 @@ document.addEventListener('change', (event) => {
   }
 
   const mediaFile = event.target.closest?.('[data-shape-media-file]');
-  if (mediaFile) syncShapeMediaSlot(mediaFile.closest('[data-shape-media-slot]'), mediaFile.files?.[0] || null);
+  if (mediaFile) {
+    const selectedFile = mediaFile.files?.[0] || null;
+    syncShapeMediaSlot(mediaFile.closest('[data-shape-media-slot]'), selectedFile);
+    if (selectedFile) uploadShapeMediaFile(mediaFile);
+  }
 });
 
 document.addEventListener('click', (event) => {
@@ -253,10 +423,49 @@ document.addEventListener('click', (event) => {
   const slot = removeButton.closest('[data-shape-media-slot]');
   const currentInput = slot?.querySelector('[data-shape-media-current]');
   const fileInput = slot?.querySelector('[data-shape-media-file]');
+  cancelShapeMediaUpload(slot);
   if (currentInput) currentInput.value = '';
   if (fileInput) fileInput.value = '';
   syncShapeMediaSlot(slot);
 });
+
+document.addEventListener('submit', (event) => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement) || !form.querySelector('[data-shape-media-slot]')) return;
+
+  const pending = pendingShapeMediaUploads(form);
+  if (pending.length === 0) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (form.dataset.waitingForShapeMedia === '1') return;
+  form.dataset.waitingForShapeMedia = '1';
+  form.setAttribute('aria-busy', 'true');
+
+  const submitter = event.submitter instanceof HTMLButtonElement ? event.submitter : null;
+  const originalLabel = submitter ? submitter.innerHTML : '';
+  if (submitter) {
+    submitter.disabled = true;
+    submitter.setAttribute('aria-busy', 'true');
+    submitter.textContent = 'Finishing media...';
+  }
+
+  Promise.allSettled(pending.map((state) => state.promise).filter(Boolean)).then(() => {
+    delete form.dataset.waitingForShapeMedia;
+    form.removeAttribute('aria-busy');
+    if (submitter) {
+      submitter.disabled = false;
+      submitter.removeAttribute('aria-busy');
+      submitter.innerHTML = originalLabel;
+    }
+    if (!form.isConnected) return;
+    if (submitter && form.contains(submitter)) {
+      form.requestSubmit(submitter);
+    } else {
+      form.requestSubmit();
+    }
+  });
+}, true);
 
 function snapshotEditorMarkup(editor) {
   const clone = editor.cloneNode(true);
