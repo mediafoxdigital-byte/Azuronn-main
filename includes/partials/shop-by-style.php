@@ -28,13 +28,12 @@ $shopStyleItems = homepage_style_showcase_cards();
                         $itemName = (string) ($item['label'] ?? 'Style');
                         $itemTypeLabel = (string) ($item['type_label'] ?? 'Jewellery');
                         $itemUrl = (string) ($item['url'] ?? '#');
-                        $itemImage = (string) ($item['image'] ?? '');
+                        $itemFallback = homepage_image_fallback('style', $itemName, $itemTypeLabel);
+                        $itemImage = homepage_image_source($item['image'] ?? '', 'style', $itemName, $itemTypeLabel);
                         ?>
                         <a class="shop-style-card" href="<?= h($itemUrl) ?>" style="--style-index: <?= (int) $index ?>;">
                             <span class="shop-style-image">
-                                <?php if ($itemImage !== ''): ?>
-                                    <img src="<?= h($itemImage) ?>" alt="<?= h($itemName) ?> style" loading="lazy">
-                                <?php endif; ?>
+                                <img src="<?= h($itemImage !== '' ? $itemImage : $itemFallback) ?>" data-image-fallback="<?= h($itemFallback) ?>" alt="<?= h($itemName) ?> style" loading="lazy" decoding="async">
                             </span>
                             <span class="shop-style-copy">
                                 <span class="shop-style-name"><?= h($itemName) ?></span>

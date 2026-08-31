@@ -31,6 +31,9 @@
                   $cardType = catalog_canonical_type(trim((string) ($card['title'] ?? '')));
                   $cardHref = $cardType !== '' ? '/shop/?type=' . urlencode($cardType) : '/shop/';
               }
+              $categoryLabel = (string) ($card['title'] ?? 'Category');
+              $categoryFallback = homepage_image_fallback('category', $categoryLabel);
+              $categoryImage = homepage_image_source($card['image'] ?? '', 'category', $categoryLabel);
             ?>
             <a
               class="category-showcase-card"
@@ -38,7 +41,7 @@
               style="--category-index: <?= (int) $index ?>;"
             >
               <div class="category-showcase-media">
-                <img src="<?= h($card['image']) ?>" alt="<?= h($card['alt']) ?>" loading="lazy">
+                <img src="<?= h($categoryImage) ?>" data-image-fallback="<?= h($categoryFallback) ?>" alt="<?= h($card['alt']) ?>" loading="lazy" decoding="async">
               </div>
               <div class="category-showcase-copy">
                 <span class="category-showcase-name"><?= h($card['title']) ?></span>

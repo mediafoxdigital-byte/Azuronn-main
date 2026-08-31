@@ -77,6 +77,63 @@ function asset_url(string $path): string
     return $url;
 }
 
+/**
+ * Return a stable local image for homepage category/style cards.
+ *
+ * Admin content may contain an old demo URL or a hosting upload that is no
+ * longer present after a deployment. The homepage should still render a real
+ * image in either case, so the fallback is selected from the card's category.
+ */
+function homepage_image_fallback(string $kind = '', string $label = '', string $type = ''): string
+{
+    $haystack = strtolower(trim($kind . ' ' . $label . ' ' . $type));
+    $path = match (true) {
+        str_contains($haystack, 'earring') => 'assets/uploads/earring_collection_bg.png',
+        str_contains($haystack, 'pendant') => 'assets/uploads/pendant_collection_bg.png',
+        str_contains($haystack, 'bracelet'), str_contains($haystack, 'bangle') => 'assets/uploads/bracelet_collection_bg.png',
+        str_contains($haystack, 'necklace') => 'assets/uploads/necklace_collection_bg.png',
+        str_contains($haystack, 'mangalsutra') => 'assets/uploads/mangalsutra_collection_bg.png',
+        str_contains($haystack, 'ring') => 'assets/uploads/ring_collection_bg.png',
+        default => 'assets/uploads/shop_collection_bg.png',
+    };
+
+    return asset_url($path);
+}
+
+/**
+ * Resolve a homepage card image and reject known unstable/missing sources.
+ * Root-relative upload paths are checked against the configured upload folder
+ * when it is available; remote URLs are left alone and are protected by the
+ * client-side error fallback attached to the card markup.
+ */
+function homepage_image_source(mixed $value, string $kind = '', string $label = '', string $type = ''): string
+{
+    $source = clean_image((string) $value);
+    $fallback = homepage_image_fallback($kind, $label, $type);
+
+    if ($source === '' || str_contains(strtolower($source), 'htmldemo.net')) {
+        return $fallback;
+    }
+
+    $path = (string) (parse_url($source, PHP_URL_PATH) ?: $source);
+    if ($path !== '' && $path[0] === '/') {
+        $uploadBase = defined('UPLOADS_PUBLIC_BASE_URL') ? rtrim((string) UPLOADS_PUBLIC_BASE_URL, '/') : '';
+        if ($uploadBase !== '' && defined('UPLOADS_ROOT_PATH') && str_starts_with($path, $uploadBase . '/')) {
+            $relative = ltrim(substr($path, strlen($uploadBase)), '/');
+            if (!is_file(rtrim((string) UPLOADS_ROOT_PATH, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative))) {
+                return $fallback;
+            }
+        } elseif (str_starts_with($path, '/assets/') && defined('BASE_PATH')) {
+            $relative = ltrim($path, '/');
+            if (!is_file(rtrim((string) BASE_PATH, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative))) {
+                return $fallback;
+            }
+        }
+    }
+
+    return $source;
+}
+
 function media_asset_type(string $path): string
 {
     $cleanPath = strtolower(parse_url(trim($path), PHP_URL_PATH) ?? trim($path));

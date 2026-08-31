@@ -16,6 +16,27 @@ window.addEventListener('scroll', () => {
 
 // Preload hover images for instant swap
 document.addEventListener('DOMContentLoaded', () => {
+  // Homepage cards can reference hosting uploads or remote URLs. If one later
+  // becomes unavailable, replace it once with its stable local fallback so the
+  // card never collapses into a broken-image icon and alt text.
+  const bindImageFallbacks = () => {
+    document.querySelectorAll('img[data-image-fallback]').forEach((image) => {
+      const fallback = image.getAttribute('data-image-fallback') || '';
+      if (!fallback) return;
+
+      const useFallback = () => {
+        if (image.dataset.fallbackApplied === '1') return;
+        image.dataset.fallbackApplied = '1';
+        image.src = fallback;
+      };
+
+      image.addEventListener('error', useFallback, { once: true });
+      if (image.complete && image.naturalWidth === 0) useFallback();
+    });
+  };
+
+  bindImageFallbacks();
+
   document.querySelectorAll('.img-hover').forEach(img => {
     const src = img.getAttribute('src');
     if (src) {
