@@ -29,8 +29,18 @@ if ($fileName === '' || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/', $fileName)
     exit;
 }
 
-$filePath = rtrim((string) $configuredUploadsRoot, '/\\') . DIRECTORY_SEPARATOR . $fileName;
-if (!is_file($filePath) || !is_readable($filePath)) {
+$fileCandidates = [
+    rtrim((string) $configuredUploadsRoot, '/\\') . DIRECTORY_SEPARATOR . $fileName,
+    __DIR__ . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'admin' . DIRECTORY_SEPARATOR . $fileName,
+];
+$filePath = '';
+foreach (array_values(array_unique($fileCandidates)) as $candidate) {
+    if (is_file($candidate) && is_readable($candidate)) {
+        $filePath = $candidate;
+        break;
+    }
+}
+if ($filePath === '') {
     http_response_code(404);
     exit;
 }
