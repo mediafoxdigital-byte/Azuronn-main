@@ -9,6 +9,12 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Uploaded media normally lives outside the deployed checkout so a Git
+    # deploy cannot remove it. Existing files are served directly; missing
+    # paths are read from the persistent directory by media.php.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^assets/uploads/admin/([A-Za-z0-9][A-Za-z0-9._-]*)$ media.php?file=$1 [L,QSA]
+
     # Legacy ring collection routes
     RewriteRule ^engagement-rings/shape/([a-zA-Z0-9-]+)/?$ shop/index.php?type=Ring&ring_category=engagement&shape=$1 [L,QSA]
     RewriteRule ^engagement-rings/style/([a-zA-Z0-9-]+)/?$ shop/index.php?type=Ring&ring_category=engagement&style=$1 [L,QSA]

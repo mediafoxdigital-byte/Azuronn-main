@@ -59,6 +59,13 @@ if (php_sapi_name() === 'cli-server') {
         return true;
     }
 
+    // Uploaded media is stored outside the deployed checkout by default.
+    if (preg_match('#^/assets/uploads/admin/([A-Za-z0-9][A-Za-z0-9._-]*)$#', $path, $matches)) {
+        $_GET['file'] = $matches[1];
+        require __DIR__ . '/media.php';
+        return true;
+    }
+
     // Serve static files as-is
     if (is_file(__DIR__ . $path)) {
         return false;
