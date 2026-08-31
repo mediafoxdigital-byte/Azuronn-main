@@ -41,7 +41,7 @@ $shapeCollectionUrl = static function (array $shape): string {
                     class="minimal-chip"
                 >
                     <span class="minimal-gem">
-                        <img src="<?= h($shape['icon_image'] ?: $shape['image']) ?>" alt="<?= h($shape['name']) ?> icon" loading="lazy">
+                        <img src="<?= h($shape['icon_image'] ?: $shape['image']) ?>" alt="<?= h($shape['name']) ?> icon" loading="lazy" decoding="async">
                     </span>
                     <span class="minimal-text">
                         <?= h($shape['name']) ?>

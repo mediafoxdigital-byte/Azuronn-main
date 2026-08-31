@@ -15,3 +15,7 @@ Thumbs.db
 
 # ── Local Supabase backups (per-environment) ───────────────────────────────────
 .supabase-backups/
+
+# Admin uploads are runtime data. New files live outside the Git checkout in
+# production, and legacy/local copies must never be committed accidentally.
+assets/uploads/admin/*

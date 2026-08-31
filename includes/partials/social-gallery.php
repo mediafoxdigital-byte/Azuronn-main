@@ -34,7 +34,7 @@ if (empty($items)) {
                 $alt = $item['alt'] ?? '';
             ?>
                 <div class="social-gallery-item">
-                    <img src="<?= h($image) ?>" alt="<?= h($alt) ?>">
+                    <img src="<?= h($image) ?>" alt="<?= h($alt) ?>" loading="lazy" decoding="async">
                     <?php if ($username): ?>
                         <div class="social-gallery-username">
                             <i class="fab fa-instagram"></i> <?= h($username) ?>

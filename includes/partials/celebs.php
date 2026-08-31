@@ -13,7 +13,7 @@
     <div class="celebs-track" data-celebs-track>
       <?php foreach ($celebs['items'] as $celeb): ?>
         <article class="celeb-card">
-          <img src="<?php e($celeb['image']); ?>" alt="<?php e($celeb['name']); ?>">
+          <img src="<?php e($celeb['image']); ?>" alt="<?php e($celeb['name']); ?>" loading="lazy" decoding="async">
           <div class="celeb-name"><?php e($celeb['name']); ?></div>
         </article>
       <?php endforeach; ?>

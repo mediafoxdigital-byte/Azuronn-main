@@ -30,7 +30,7 @@
     ?>
       <a class="news-card-premium" href="<?= h(news_article_url($story)) ?>">
         <div class="news-card-img-wrap">
-          <img src="<?php e($story['image']); ?>" alt="<?php e($story['alt']); ?>">
+          <img src="<?php e($story['image']); ?>" alt="<?php e($story['alt']); ?>" loading="lazy" decoding="async">
           <div class="news-date-badge">
             <span class="news-date-day"><?= $day ?></span>
             <span class="news-date-my"><?= $my ?></span>

@@ -80,6 +80,22 @@ The code can fall back to the publishable key for requests, but for a real produ
 ## Storage model
 
 - Images and videos upload to hosting storage under `UPLOADS_ROOT_PATH`.
+- When no path is configured, the application uses an `azuronn-media`
+  directory beside the deployed checkout. For a normal Hostinger document
+  root such as `/home/USER/domains/DOMAIN/public_html`, the default is
+  `/home/USER/domains/DOMAIN/azuronn-media`.
+- The public `/assets/uploads/admin/<filename>` URL is routed through
+  `media.php`, so the storage directory does not need to be web-accessible.
+- Do not configure `UPLOADS_ROOT_PATH` inside the Git deployment directory.
+  If persistent storage is not writable, uploads intentionally fail instead
+  of being saved somewhere a later deployment can delete.
+- Before the first deployment of this storage model, copy any current runtime
+  files from `assets/uploads/admin/` to the persistent directory. Git/Supabase
+  metadata contains only their URLs and cannot restore file contents that a
+  previous Hostinger deployment already removed.
+- New JPG, PNG, and WebP uploads larger than 900 KB (or 2200 px) are resized
+  and encoded as WebP when the PHP GD/WebP extension is available. GIF and
+  video files are kept unchanged.
 - Database rows store:
   - public URL
   - local file path

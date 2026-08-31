@@ -388,7 +388,7 @@ html, body, .header-luxury-wrapper, .new-header-overrides {
         </div>
         <div class="header-grid-center">
           <a href="<?php e(resolve_link('/')); ?>" class="luxury-logo-box">
-            <img src="<?php e(resolve_link(SITE_LOGO_PATH)); ?>" alt="<?php e(SITE_NAME . ' Logo'); ?>" class="main-header-logo-img">
+            <img src="<?php e(resolve_link(SITE_LOGO_PATH)); ?>" alt="<?php e(SITE_NAME . ' Logo'); ?>" class="main-header-logo-img" decoding="async" fetchpriority="high">
           </a>
         </div>
         <div class="header-grid-right">

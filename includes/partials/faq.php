@@ -33,7 +33,7 @@ if (empty($items)) {
             <!-- Right: Booking Card -->
             <div class="faq-v2-booking">
                 <div class="faq-v2-booking-img">
-                    <img src="/assets/uploads/faq-booking.png" alt="Book a Consultation">
+                    <img src="/assets/uploads/faq-booking.png" alt="Book a Consultation" loading="lazy" decoding="async">
                 </div>
                 <div class="faq-v2-booking-body">
                     <h3>Still have questions?</h3>

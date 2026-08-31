@@ -672,6 +672,140 @@ function admin_upload_hint(): string
     return $image === $video ? 'max ' . $video : 'max ' . $video . ' video, ' . $image . ' image';
 }
 
+/**
+ * Resize a still image and encode it as WebP when the host provides GD/WebP.
+ * Returning null deliberately falls back to storing the validated original.
+ */
+function admin_optimize_uploaded_image(string $sourcePath, string $sourceMime, string $directory, string $baseName, int $sourceSize): ?array
+{
+    if (
+        $sourceMime === 'image/gif'
+        || !function_exists('imagewebp')
+        || !function_exists('imagecreatetruecolor')
+        || !function_exists('imagecopyresampled')
+    ) {
+        return null;
+    }
+
+    $decoder = match ($sourceMime) {
+        'image/jpeg' => 'imagecreatefromjpeg',
+        'image/png' => 'imagecreatefrompng',
+        'image/webp' => 'imagecreatefromwebp',
+        default => '',
+    };
+    if ($decoder === '' || !function_exists($decoder)) {
+        return null;
+    }
+
+    $dimensions = @getimagesize($sourcePath);
+    $sourceWidth = (int) ($dimensions[0] ?? 0);
+    $sourceHeight = (int) ($dimensions[1] ?? 0);
+    if ($sourceWidth < 1 || $sourceHeight < 1) {
+        return ['ok' => false, 'error' => 'The uploaded image is damaged or has invalid dimensions.'];
+    }
+
+    $maxDimension = 2200;
+    $scale = min(1, $maxDimension / max($sourceWidth, $sourceHeight));
+    $targetWidth = max(1, (int) round($sourceWidth * $scale));
+    $targetHeight = max(1, (int) round($sourceHeight * $scale));
+    if ($scale >= 1 && $sourceSize <= 900 * 1024) {
+        return null;
+    }
+
+    // GD expands compressed images in memory. Refuse a decode that is likely
+    // to exceed the PHP memory ceiling instead of allowing a fatal error.
+    $memoryLimit = admin_ini_bytes((string) ini_get('memory_limit'));
+    $estimatedBytes = ($sourceWidth * $sourceHeight * 5)
+        + ($targetWidth * $targetHeight * 5)
+        + (16 * 1024 * 1024);
+    if ($memoryLimit > 0 && memory_get_usage(true) + $estimatedBytes > (int) ($memoryLimit * 0.85)) {
+        return ['ok' => false, 'error' => 'This image has too many pixels for the server to optimize safely. Resize it below 2200px on the longest side and upload it again.'];
+    }
+
+    $sourceImage = @$decoder($sourcePath);
+    if ($sourceImage === false) {
+        return ['ok' => false, 'error' => 'The uploaded image could not be decoded. Export it again as JPG, PNG, or WebP.'];
+    }
+
+    // Most phone-camera JPEGs use EXIF orientation rather than rotated pixels.
+    if ($sourceMime === 'image/jpeg' && function_exists('exif_read_data') && function_exists('imagerotate')) {
+        $exif = @exif_read_data($sourcePath, 'IFD0', true);
+        $orientation = (int) ($exif['IFD0']['Orientation'] ?? $exif['Orientation'] ?? 1);
+        $degrees = match ($orientation) {
+            3 => 180,
+            6 => -90,
+            8 => 90,
+            default => 0,
+        };
+        if ($degrees !== 0) {
+            $rotated = @imagerotate($sourceImage, $degrees, 0);
+            if ($rotated !== false) {
+                imagedestroy($sourceImage);
+                $sourceImage = $rotated;
+                $sourceWidth = imagesx($sourceImage);
+                $sourceHeight = imagesy($sourceImage);
+                $scale = min(1, $maxDimension / max($sourceWidth, $sourceHeight));
+                $targetWidth = max(1, (int) round($sourceWidth * $scale));
+                $targetHeight = max(1, (int) round($sourceHeight * $scale));
+            }
+        }
+    }
+
+    $targetImage = imagecreatetruecolor($targetWidth, $targetHeight);
+    if ($targetImage === false) {
+        imagedestroy($sourceImage);
+        return null;
+    }
+    imagealphablending($targetImage, false);
+    imagesavealpha($targetImage, true);
+    $transparent = imagecolorallocatealpha($targetImage, 0, 0, 0, 127);
+    imagefilledrectangle($targetImage, 0, 0, $targetWidth, $targetHeight, $transparent);
+
+    $resampled = imagecopyresampled(
+        $targetImage,
+        $sourceImage,
+        0,
+        0,
+        0,
+        0,
+        $targetWidth,
+        $targetHeight,
+        $sourceWidth,
+        $sourceHeight
+    );
+    imagedestroy($sourceImage);
+    if (!$resampled) {
+        imagedestroy($targetImage);
+        return null;
+    }
+
+    $fileName = $baseName . '.webp';
+    $destination = rtrim($directory, '/\\') . DIRECTORY_SEPARATOR . $fileName;
+    $saved = @imagewebp($targetImage, $destination, 84);
+    imagedestroy($targetImage);
+    clearstatcache(true, $destination);
+    $optimizedSize = $saved && is_file($destination) ? (int) filesize($destination) : 0;
+    if (!$saved || $optimizedSize < 1) {
+        @unlink($destination);
+        return null;
+    }
+
+    // For a small image whose re-encode is not beneficial, preserve the source.
+    if ($scale >= 1 && $optimizedSize >= $sourceSize) {
+        @unlink($destination);
+        return null;
+    }
+    @chmod($destination, 0644);
+
+    return [
+        'ok' => true,
+        'path' => $destination,
+        'name' => $fileName,
+        'mime_type' => 'image/webp',
+        'file_size' => $optimizedSize,
+    ];
+}
+
 // Human reason for a PHP upload error code, so a rejected file reports honestly
 // instead of being masked by a generic "saved" message.
 function admin_upload_error_label(int $code): string
@@ -714,24 +848,42 @@ function admin_store_uploaded_media(array $file, bool $registerMetadata = true):
 
     $dir = admin_upload_dir_abs();
     if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
-        return ['ok' => false, 'error' => 'The uploads folder could not be created.'];
+        return ['ok' => false, 'error' => 'Persistent uploads could not be created at ' . $dir . '. Create that folder on the host and make it writable by PHP.'];
     }
 
-    $name = 'admin-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $mediaType['ext'];
-    $destination = $dir . '/' . $name;
-    if (!move_uploaded_file($file['tmp_name'], $destination)) {
-        return ['ok' => false, 'error' => 'The uploaded file couldn\'t be saved to the server. Check the uploads folder is writable.'];
+    $baseName = 'admin-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4));
+    $storedMime = $mime;
+    $storedSize = (int) ($file['size'] ?? 0);
+    $optimized = $kind === 'image'
+        ? admin_optimize_uploaded_image($file['tmp_name'], $mime, $dir, $baseName, $storedSize)
+        : null;
+    if (is_array($optimized) && empty($optimized['ok'])) {
+        return $optimized;
     }
 
-    $publicUrl = admin_upload_dir_web() . '/' . $name;
+    if (is_array($optimized) && !empty($optimized['ok'])) {
+        $name = (string) $optimized['name'];
+        $destination = (string) $optimized['path'];
+        $storedMime = (string) $optimized['mime_type'];
+        $storedSize = (int) $optimized['file_size'];
+    } else {
+        $name = $baseName . '.' . $mediaType['ext'];
+        $destination = rtrim($dir, '/\\') . DIRECTORY_SEPARATOR . $name;
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            return ['ok' => false, 'error' => 'The uploaded file couldn\'t be saved to persistent storage. Check that ' . $dir . ' exists or its parent folder is writable.'];
+        }
+        @chmod($destination, 0644);
+    }
+
+    $publicUrl = rtrim(admin_upload_dir_web(), '/') . '/' . $name;
     if ($registerMetadata && supabase_enabled()) {
         admin_queue_media_asset([
             'public_url' => $publicUrl,
             'file_path' => $destination,
             'file_name' => $name,
-            'mime_type' => $mime,
+            'mime_type' => $storedMime,
             'media_type' => $mediaType['media_type'],
-            'file_size' => (int) ($file['size'] ?? 0),
+            'file_size' => $storedSize,
             'source' => 'hosting',
         ]);
     }
@@ -740,7 +892,7 @@ function admin_store_uploaded_media(array $file, bool $registerMetadata = true):
         'ok' => true,
         'url' => $publicUrl,
         'media_type' => $kind,
-        'file_size' => (int) ($file['size'] ?? 0),
+        'file_size' => $storedSize,
     ];
 }
 

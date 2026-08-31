@@ -14,7 +14,7 @@
 <div class="mnav-scrim" data-mobile-nav-scrim></div>
 <nav id="primary-nav" class="mnav luxury-mnav" data-mobile-nav style="background:transparent; border:none; padding:0; width:100%;">
   <div class="mnav-drawer-head" aria-hidden="true">
-    <img src="<?php e(resolve_link(SITE_LOGO_PATH)); ?>" alt="<?php e(SITE_NAME . ' Logo'); ?>">
+    <img src="<?php e(resolve_link(SITE_LOGO_PATH)); ?>" alt="<?php e(SITE_NAME . ' Logo'); ?>" loading="lazy" decoding="async">
   </div>
   <form class="mnav-drawer-search" action="<?php e(resolve_link('/shop/')); ?>" method="get" role="search">
     <input type="search" name="q" placeholder="Search jewellery..." autocomplete="off" aria-label="Search catalogue">
@@ -82,7 +82,7 @@
                   <div class="mega-col-title">SHOP BY STYLE</div>
                   <?php foreach (array_slice($styles, 0, 4) as $style): ?>
                     <a href="<?php e(resolve_link('/shop/?' . http_build_query($ringSectionQuery + ['style' => $style['value']]))); ?>" class="mega-link-with-image">
-                      <div class="img-wrap"><img src="<?php e($style['image']); ?>" alt="<?php e($style['label']); ?>"></div>
+                      <div class="img-wrap"><img src="<?php e($style['image']); ?>" alt="<?php e($style['label']); ?>" loading="lazy" decoding="async"></div>
                       <span><?php e($style['label']); ?></span>
                     </a>
                   <?php endforeach; ?>
@@ -116,7 +116,7 @@
                       }
                     ?>
                     <a href="<?php e(resolve_link('/shop/?' . http_build_query($ringSectionQuery + ['shape' => $navShapeSlug]))); ?>" class="mega-link-with-image">
-                      <div class="img-wrap shape-img-wrap"><img src="<?php e($navShape['icon_image'] ?: $navShape['image']); ?>" alt="<?php e($navShape['name']); ?>"></div>
+                      <div class="img-wrap shape-img-wrap"><img src="<?php e($navShape['icon_image'] ?: $navShape['image']); ?>" alt="<?php e($navShape['name']); ?>" loading="lazy" decoding="async"></div>
                       <span><?php e($navShape['name']); ?></span>
                     </a>
                   <?php endforeach; ?>
@@ -126,7 +126,7 @@
                 <div class="mega-col mega-col-feature-card">
                   <div class="feature-card-inner">
                     <div class="feature-img">
-                      <img src="/assets/uploads/featured-diamond-ring.jpg" alt="Diamond Rings">
+                      <img src="/assets/uploads/featured-diamond-ring.jpg" alt="Diamond Rings" loading="lazy" decoding="async">
                     </div>
                     <div class="feature-content">
                       <h3>Diamond Rings</h3>
@@ -139,7 +139,7 @@
                 <?php foreach (ring_gender_box_cards() as $navGenderCard): ?>
                 <div class="wedding-mega-boxcol">
                   <a href="<?php e(resolve_link('/shop/?' . http_build_query($ringSectionQuery + ['gender' => $navGenderCard['key']]))); ?>" class="wedding-mega-box">
-                    <div class="wedding-mega-box-img"><img src="<?php e($navGenderCard['image']); ?>" alt="<?php e($navGenderCard['label']); ?>"></div>
+                    <div class="wedding-mega-box-img"><img src="<?php e($navGenderCard['image']); ?>" alt="<?php e($navGenderCard['label']); ?>" loading="lazy" decoding="async"></div>
                     <div class="wedding-mega-box-title"><?php e($navGenderCard['label']); ?></div>
                   </a>
                 </div>
@@ -206,7 +206,7 @@
                 <?php foreach ($jewelleryCategories as $jcat): ?>
                   <a href="<?php e(resolve_link($jcat['url'])); ?>" class="jewellery-card" style="text-decoration: none; display: flex; flex-direction: column;">
                     <div class="jewellery-card-img">
-                      <img src="<?php e($jcat['image']); ?>" alt="<?php e($jcat['label']); ?>">
+                      <img src="<?php e($jcat['image']); ?>" alt="<?php e($jcat['label']); ?>" loading="lazy" decoding="async">
                     </div>
                     <div class="jewellery-card-title"><?php e($jcat['label']); ?></div>
                   </a>
@@ -265,7 +265,7 @@
                   <div class="mega-col mega-col-feature-card">
                     <div class="feature-card-inner">
                       <div class="feature-img">
-                        <img src="<?php e($item['feature']['image'] ?? ''); ?>" alt="<?php e($item['feature']['alt'] ?? ''); ?>">
+                        <img src="<?php e($item['feature']['image'] ?? ''); ?>" alt="<?php e($item['feature']['alt'] ?? ''); ?>" loading="lazy" decoding="async">
                       </div>
                       <div class="feature-content">
                         <i class="far fa-gem"></i>

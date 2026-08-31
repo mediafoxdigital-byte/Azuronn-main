@@ -1339,7 +1339,7 @@ function render_product_card(array $product, array $extraParams = []): void
             return '<video class="' . h($className) . '" muted autoplay loop playsinline preload="metadata"><source src="' . h($resolvedPath) . '" type="' . h($cardVideoMime($resolvedPath)) . '"></video>';
         }
 
-        return '<img class="' . h($className) . '" src="' . h($resolvedPath) . '" alt="' . h($alt) . '">';
+        return '<img class="' . h($className) . '" src="' . h($resolvedPath) . '" alt="' . h($alt) . '" loading="lazy" decoding="async">';
     };
     $inventoryStatus = function_exists('product_inventory_status')
         ? product_inventory_status($product, ['metal' => (string) ($product['color'] ?? '')])
@@ -1455,7 +1455,7 @@ function render_shop_listing_card(array $product, array $filterSelection = []): 
         if (media_asset_type($resolvedPath) === 'video') {
             return '<video class="' . h($className) . '" src="' . h($resolvedPath) . '" muted autoplay loop playsinline preload="metadata" aria-hidden="true"></video>';
         }
-        return '<img class="' . h($className) . '" src="' . h($resolvedPath) . '" alt="' . h($alt) . '" loading="lazy">';
+        return '<img class="' . h($className) . '" src="' . h($resolvedPath) . '" alt="' . h($alt) . '" loading="lazy" decoding="async">';
     };
 
     // Hover swatches mirror the purchase page exactly: the same set of metals /

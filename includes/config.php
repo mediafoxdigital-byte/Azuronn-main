@@ -56,20 +56,14 @@ define('SITE_LOGO_PATH', $settings['logo_path']);
 define('SUPABASE_URL', supabase_project_url());
 define('SUPABASE_PUBLISHABLE_KEY', supabase_publishable_key());
 define('SUPABASE_ENABLED', supabase_enabled());
-// Keep new uploads outside the deployed checkout by default. Git-based deploys
-// can replace everything under BASE_PATH, while a sibling directory survives
-// those deploys. An explicit runtime/env path remains authoritative for hosts
-// that already provide persistent storage elsewhere.
+// Keep new uploads outside the deployed checkout. Git-based deploys can replace
+// everything under BASE_PATH, while a sibling directory survives those deploys.
+// Do not silently fall back into BASE_PATH when the sibling is not writable:
+// the upload handler must report that configuration error instead of accepting
+// a file that a later deployment can delete.
 $configuredUploadsRoot = app_runtime_config_value('uploads_root_path') ?: getenv('AZURONN_UPLOADS_ROOT');
 if ($configuredUploadsRoot === false || trim((string) $configuredUploadsRoot) === '') {
-    $persistentUploadsRoot = dirname(BASE_PATH) . DIRECTORY_SEPARATOR . 'azuronn-media';
-    $persistentParent = dirname($persistentUploadsRoot);
-    $persistentWritable = is_dir($persistentUploadsRoot)
-        ? is_writable($persistentUploadsRoot)
-        : (is_dir($persistentParent) && is_writable($persistentParent));
-    $configuredUploadsRoot = $persistentWritable
-        ? $persistentUploadsRoot
-        : BASE_PATH . '/assets/uploads/admin';
+    $configuredUploadsRoot = dirname(BASE_PATH) . DIRECTORY_SEPARATOR . 'azuronn-media';
 }
 define('UPLOADS_ROOT_PATH', (string) $configuredUploadsRoot);
 define('UPLOADS_PUBLIC_BASE_URL', app_runtime_config_value('uploads_public_base_url') ?: (getenv('AZURONN_UPLOADS_PUBLIC_BASE_URL') ?: '/assets/uploads/admin'));
