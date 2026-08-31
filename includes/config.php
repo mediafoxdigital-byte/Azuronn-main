@@ -65,6 +65,17 @@ $configuredUploadsRoot = app_runtime_config_value('uploads_root_path') ?: getenv
 if ($configuredUploadsRoot === false || trim((string) $configuredUploadsRoot) === '') {
     $configuredUploadsRoot = dirname(BASE_PATH) . DIRECTORY_SEPARATOR . 'azuronn-media';
 }
+$normalizedBasePath = rtrim(str_replace('\\', '/', BASE_PATH), '/');
+$normalizedUploadsRoot = rtrim(str_replace('\\', '/', (string) $configuredUploadsRoot), '/');
+if (
+    $normalizedUploadsRoot === $normalizedBasePath
+    || str_starts_with($normalizedUploadsRoot, $normalizedBasePath . '/')
+) {
+    // A stale runtime setting must not put uploads back inside public_html,
+    // where a later Git deployment can remove them.
+    $configuredUploadsRoot = dirname(BASE_PATH) . DIRECTORY_SEPARATOR . 'azuronn-media';
+}
+unset($normalizedBasePath, $normalizedUploadsRoot);
 define('UPLOADS_ROOT_PATH', (string) $configuredUploadsRoot);
 define('UPLOADS_PUBLIC_BASE_URL', app_runtime_config_value('uploads_public_base_url') ?: (getenv('AZURONN_UPLOADS_PUBLIC_BASE_URL') ?: '/assets/uploads/admin'));
 

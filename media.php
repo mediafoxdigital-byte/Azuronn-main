@@ -14,6 +14,15 @@ $configuredUploadsRoot = app_runtime_config_value('uploads_root_path') ?: getenv
 if ($configuredUploadsRoot === false || trim((string) $configuredUploadsRoot) === '') {
     $configuredUploadsRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'azuronn-media';
 }
+$normalizedBasePath = rtrim(str_replace('\\', '/', __DIR__), '/');
+$normalizedUploadsRoot = rtrim(str_replace('\\', '/', (string) $configuredUploadsRoot), '/');
+if (
+    $normalizedUploadsRoot === $normalizedBasePath
+    || str_starts_with($normalizedUploadsRoot, $normalizedBasePath . '/')
+) {
+    $configuredUploadsRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'azuronn-media';
+}
+unset($normalizedBasePath, $normalizedUploadsRoot);
 
 $fileName = rawurldecode((string) ($_GET['file'] ?? ''));
 if ($fileName === '' || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/', $fileName)) {
