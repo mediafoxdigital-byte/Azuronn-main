@@ -101,37 +101,18 @@ function homepage_image_fallback(string $kind = '', string $label = '', string $
 }
 
 /**
- * Resolve a homepage card image and reject known unstable/missing sources.
- * Root-relative upload paths are checked against the configured upload folder
- * when it is available; remote URLs are left alone and are protected by the
- * client-side error fallback attached to the card markup.
+ * Resolve a homepage card image without rewriting a valid stored URL.
+ *
+ * The hosting filesystem is not always the same filesystem that serves a
+ * public URL (CDN, mounted upload volume, or a different document root), so a
+ * server-side is_file() check can incorrectly replace a real image. Only an
+ * empty value gets a server fallback; browser load errors are handled by the
+ * data-image-fallback handler in main.js.
  */
 function homepage_image_source(mixed $value, string $kind = '', string $label = '', string $type = ''): string
 {
     $source = clean_image((string) $value);
-    $fallback = homepage_image_fallback($kind, $label, $type);
-
-    if ($source === '' || str_contains(strtolower($source), 'htmldemo.net')) {
-        return $fallback;
-    }
-
-    $path = (string) (parse_url($source, PHP_URL_PATH) ?: $source);
-    if ($path !== '' && $path[0] === '/') {
-        $uploadBase = defined('UPLOADS_PUBLIC_BASE_URL') ? rtrim((string) UPLOADS_PUBLIC_BASE_URL, '/') : '';
-        if ($uploadBase !== '' && defined('UPLOADS_ROOT_PATH') && str_starts_with($path, $uploadBase . '/')) {
-            $relative = ltrim(substr($path, strlen($uploadBase)), '/');
-            if (!is_file(rtrim((string) UPLOADS_ROOT_PATH, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative))) {
-                return $fallback;
-            }
-        } elseif (str_starts_with($path, '/assets/') && defined('BASE_PATH')) {
-            $relative = ltrim($path, '/');
-            if (!is_file(rtrim((string) BASE_PATH, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative))) {
-                return $fallback;
-            }
-        }
-    }
-
-    return $source;
+    return $source !== '' ? $source : homepage_image_fallback($kind, $label, $type);
 }
 
 function media_asset_type(string $path): string
